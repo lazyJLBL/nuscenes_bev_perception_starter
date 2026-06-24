@@ -14,6 +14,7 @@
 import sys
 import os
 import cv2
+import argparse
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
@@ -33,6 +34,10 @@ import matplotlib.pyplot as plt
 
 
 def main():
+    parser = argparse.ArgumentParser(description="LiDAR 投影到相机图像")
+    parser.add_argument("--sample-token", type=str, default=None, help="指定要处理的 sample token")
+    args = parser.parse_args()
+
     print_header("LiDAR 投影到相机图像")
     
     ensure_output_dirs()
@@ -46,9 +51,13 @@ def main():
         print(str(e))
         sys.exit(1)
     
-    # 获取第一个 sample
-    first_sample = loader.get_first_sample()
-    sample_token = first_sample['token']
+    # 获取 sample token
+    if args.sample_token:
+        sample_token = args.sample_token
+    else:
+        first_sample = loader.get_first_sample()
+        sample_token = first_sample['token']
+        
     short_token = sample_token[:8]
     
     print(f"   使用 sample token: {sample_token}")

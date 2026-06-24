@@ -13,6 +13,7 @@
 
 import sys
 import os
+import argparse
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
@@ -25,6 +26,10 @@ from src.utils.logger import print_header
 
 
 def main():
+    parser = argparse.ArgumentParser(description="nuScenes 样本可视化")
+    parser.add_argument("--sample-token", type=str, default=None, help="指定要可视化的 sample token")
+    args = parser.parse_args()
+
     print_header("nuScenes 样本可视化")
     
     # 创建输出目录
@@ -38,9 +43,13 @@ def main():
         print(str(e))
         sys.exit(1)
     
-    # 使用第一个 sample
-    first_sample = loader.get_first_sample()
-    sample_token = first_sample['token']
+    # 获取 sample token
+    if args.sample_token:
+        sample_token = args.sample_token
+    else:
+        first_sample = loader.get_first_sample()
+        sample_token = first_sample['token']
+    
     short_token = sample_token[:8]  # 取前 8 位作为文件名后缀
     
     print(f"\n   使用 sample token: {sample_token}")

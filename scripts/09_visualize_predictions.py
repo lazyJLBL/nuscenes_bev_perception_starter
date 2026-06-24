@@ -18,6 +18,7 @@ import json
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
@@ -174,32 +175,28 @@ def visualize_gt_as_demo(loader, sample_token):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="3D 检测预测结果可视化")
+    parser.add_argument("--sample-token", type=str, default=None, help="指定要处理的 sample token")
+    args = parser.parse_args()
+
     print_header("3D 检测预测结果可视化")
     
     ensure_output_dirs()
     
-    print("""
-📋 本脚本可视化 3D 检测的结果。
-
-   由于新手可能尚未跑通 MMDetection3D 推理流程，
-   本脚本会先使用 GT（Ground Truth）标注进行可视化演示，
-   展示「如果有推理结果，可视化效果是什么样的」。
-
-   如果你已经有推理结果（JSON 或 PKL 文件），
-   可以修改此脚本加载你自己的结果。
-""")
-    
-    # 加载数据集
+    # 1. 加载数据集
     print("\n📌 步骤 1: 加载 nuScenes 数据集...")
     try:
         loader = NuScenesLoader(verbose=True)
     except FileNotFoundError as e:
         print(str(e))
         sys.exit(1)
-    
-    # 使用第一个 sample
-    first_sample = loader.get_first_sample()
-    sample_token = first_sample['token']
+        
+    # 获取 sample token
+    if args.sample_token:
+        sample_token = args.sample_token
+    else:
+        first_sample = loader.get_first_sample()
+        sample_token = first_sample['token']
     
     # 使用 GT 标注进行演示
     print("\n📌 步骤 2: 使用 GT 标注可视化...")

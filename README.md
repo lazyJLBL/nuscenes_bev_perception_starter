@@ -128,23 +128,26 @@ python scripts/04_visualize_3d_boxes.py
 # 将 3D 点云压缩成 2D 的多通道 BEV 图像
 python scripts/05_generate_simple_bev.py
 # 📖 推荐阅读: docs/03_bev_explanation.md
+
+# 💡 提示：02-05 脚本支持通过 --sample-token 参数指定特定帧
+# 例如: python scripts/02_visualize_samples.py --sample-token <token>
 ```
 
-### 阶段 3：3D 检测 Baseline
-这部分将引导你使用开源框架（MMDetection3D）跑通真实的检测算法。
+### 阶段 3：3D 检测 Baseline 流程指南 (仅供参考)
+这部分主要是展示真实自动驾驶算法的训练与推理流程指南，并不在本项目内直接运行复杂的训练。
 
 ```bash
-# 检查并准备检测框架环境
+# 检查并准备检测框架环境配置指南
 python scripts/06_prepare_detection_baseline.py
 # 📖 推荐阅读: docs/04_3d_detection_baseline.md
 
-# 运行训练脚本 (需要 GPU)
+# 打印训练命令指南 (不执行真实训练)
 python scripts/07_train_baseline.py
 
-# 运行推理脚本
+# 打印推理命令和示例格式 (不执行真实推理)
 python scripts/08_inference_baseline.py
 
-# 可视化检测结果
+# 可视化检测结果 (当前使用 GT 作为效果演示，读取预测结果为 TODO)
 python scripts/09_visualize_predictions.py
 ```
 

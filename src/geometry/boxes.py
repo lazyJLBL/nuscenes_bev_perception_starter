@@ -26,6 +26,35 @@ import numpy as np
 from pyquaternion import Quaternion
 from typing import List, Tuple
 
+def normalize_nuscenes_category(category_name: str) -> str:
+    """
+    将 nuScenes 的细粒度类别名（如 human.pedestrian.adult）
+    映射到检测任务常用的 10 个大类（car, pedestrian, 等）。
+    """
+    if category_name.startswith('vehicle.car'):
+        return 'car'
+    elif category_name.startswith('vehicle.truck'):
+        return 'truck'
+    elif category_name.startswith('vehicle.bus'):
+        return 'bus'
+    elif category_name.startswith('vehicle.trailer'):
+        return 'trailer'
+    elif category_name.startswith('vehicle.construction'):
+        return 'construction_vehicle'
+    elif category_name.startswith('vehicle.bicycle'):
+        return 'bicycle'
+    elif category_name.startswith('vehicle.motorcycle'):
+        return 'motorcycle'
+    elif category_name.startswith('human.pedestrian'):
+        return 'pedestrian'
+    elif category_name.startswith('movable_object.trafficcone'):
+        return 'traffic_cone'
+    elif category_name.startswith('movable_object.barrier'):
+        return 'barrier'
+    else:
+        # 其他不关心的类别（如 animal, debris 等）
+        return category_name.split('.')[-1]
+
 from .transforms import (
     transform_matrix,
     get_global_to_ego_transform,
@@ -81,7 +110,7 @@ class Box3D:
             center=ann_record['translation'],
             size=ann_record['size'],
             orientation=Quaternion(ann_record['rotation']),
-            label=ann_record.get('category_name', 'unknown'),
+            label=normalize_nuscenes_category(ann_record.get('category_name', 'unknown')),
         )
     
     @property

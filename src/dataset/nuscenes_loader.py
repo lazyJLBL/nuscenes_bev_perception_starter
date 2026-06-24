@@ -32,6 +32,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.insert(0, PROJECT_ROOT)
 
 from src.utils.config import get_paths_config, get_dataset_config
+from src.utils.path_utils import resolve_project_path
 
 
 class NuScenesLoader:
@@ -60,7 +61,7 @@ class NuScenesLoader:
         """
         paths_config = get_paths_config()
         
-        self.dataroot = dataroot or paths_config['nuscenes_dataroot']
+        self.dataroot = resolve_project_path(dataroot or paths_config['nuscenes_dataroot'])
         self.version = version or paths_config.get('nuscenes_version', 'v1.0-mini')
         
         # 检查数据目录

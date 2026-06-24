@@ -287,27 +287,36 @@ def camera_to_image(
         [1]    Z     [0  0   1 ] [Z]
     
     参数:
-        points_camera (np.ndarray): Camera 坐标系下的 3D 点 (N, 3)
+        points_camera (np.ndarray): Camera 坐标系下的 3D 点 (N, 3+)
         camera_intrinsic (np.ndarray): 3x3 相机内参矩阵
     
     返回:
         np.ndarray: 图像坐标 (N, 3)，第三列为深度值 Z
                     前两列 (u, v) 为像素坐标
     """
+    if points_camera.ndim != 2 or points_camera.shape[1] < 3:
+        raise ValueError(f"points_camera 的形状必须为 (N, 3+) 但实际为 {points_camera.shape}")
+
     # 确保内参矩阵是 numpy 数组
     K = np.array(camera_intrinsic)
     
+    # 只取前 3 列 xyz 参与投影
+    xyz = points_camera[:, :3]
+    
     # 投影: [3x3] @ [3xN] -> [3xN] -> [Nx3]
-    projected = (K @ points_camera.T).T  # (N, 3)
+    projected = (K @ xyz.T).T  # (N, 3)
     
-    # 归一化: 除以深度 Z（第三列）
-    depths = projected[:, 2:3]  # (N, 1)
+    # 从原始 Camera 坐标获取真实深度 Z，不使用 projected 中的修改值
+    depths = points_camera[:, 2:3]  # (N, 1)
+    
     # 避免除以 0
-    depths = np.where(np.abs(depths) < 1e-6, 1e-6, depths)
+    depth_for_div = np.where(np.abs(depths) < 1e-6, 1e-6, depths)
     
-    projected[:, 0:2] = projected[:, 0:2] / depths
+    # 归一化: u, v = X/Z, Y/Z
+    uv = projected[:, 0:2] / depth_for_div
     
-    return projected  # (N, 3): [u, v, depth]
+    # 拼接返回 [u, v, depth]
+    return np.hstack((uv, depths))
 
 
 def lidar_to_camera(

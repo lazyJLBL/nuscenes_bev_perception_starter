@@ -14,6 +14,22 @@ import os
 from .config import get_paths_config, get_project_root
 
 
+def resolve_project_path(path_str):
+    """
+    解析路径，将其转换为相对于项目根目录的绝对路径（如果它不是绝对路径）。
+    
+    参数:
+        path_str (str): 要解析的路径
+        
+    返回:
+        str: 绝对路径
+    """
+    if os.path.isabs(path_str):
+        return path_str
+    
+    project_root = get_project_root()
+    return os.path.join(project_root, path_str)
+
 def ensure_output_dirs():
     """
     创建所有输出目录（如果不存在）。
@@ -35,7 +51,7 @@ def ensure_output_dirs():
     ]
     
     for d in output_dirs:
-        full_path = os.path.join(project_root, d)
+        full_path = resolve_project_path(d)
         os.makedirs(full_path, exist_ok=True)
 
 
@@ -66,7 +82,7 @@ def get_output_path(subdir, filename):
     }
     
     output_dir = subdir_mapping.get(subdir, os.path.join('outputs', subdir))
-    full_dir = os.path.join(project_root, output_dir)
+    full_dir = resolve_project_path(output_dir)
     os.makedirs(full_dir, exist_ok=True)
     
     return os.path.join(full_dir, filename)
@@ -83,7 +99,7 @@ def get_nuscenes_dataroot():
         如果路径不存在，打印警告但不抛出异常
     """
     paths_config = get_paths_config()
-    dataroot = paths_config['nuscenes_dataroot']
+    dataroot = resolve_project_path(paths_config['nuscenes_dataroot'])
     
     if not os.path.exists(dataroot):
         print(f"\n⚠️  警告: nuScenes 数据目录不存在: {dataroot}")

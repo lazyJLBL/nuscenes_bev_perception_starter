@@ -15,18 +15,24 @@ import sys
 import os
 import cv2
 import numpy as np
+import argparse
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
 from src.dataset.nuscenes_loader import NuScenesLoader
 from src.geometry.boxes import Box3D, annotations_to_boxes, transform_boxes_to_ego, transform_boxes_to_camera
+from src.geometry.transforms import lidar_to_ego
 from src.visualization.draw_boxes import draw_boxes_on_image, draw_boxes_bev
 from src.utils.path_utils import ensure_output_dirs, get_output_path
 from src.utils.logger import print_header
 
 
 def main():
+    parser = argparse.ArgumentParser(description="3D Box 可视化")
+    parser.add_argument("--sample-token", type=str, default=None, help="指定要处理的 sample token")
+    args = parser.parse_args()
+
     print_header("3D Box 可视化")
     
     ensure_output_dirs()
@@ -39,9 +45,13 @@ def main():
         print(str(e))
         sys.exit(1)
     
-    # 获取第一个 sample
-    first_sample = loader.get_first_sample()
-    sample_token = first_sample['token']
+    # 获取 sample token
+    if args.sample_token:
+        sample_token = args.sample_token
+    else:
+        first_sample = loader.get_first_sample()
+        sample_token = first_sample['token']
+        
     short_token = sample_token[:8]
     
     # 获取标注框
@@ -70,12 +80,15 @@ def main():
     # 加载 LiDAR 点云作为背景
     points = loader.load_lidar_points(sample_token)
     
+    # 将点云从 LiDAR 坐标系转换到 Ego 坐标系，与 boxes_ego 匹配
+    points_ego = lidar_to_ego(points, lidar_calib)
+    
     save_bev = get_output_path("bev", f"boxes_bev_{short_token}.jpg")
     draw_boxes_bev(
         boxes=boxes_ego,
         save_path=save_bev,
         title=f"3D Boxes BEV 俯视图 (sample: {short_token}...)",
-        points=points,
+        points=points_ego,
     )
     
     # ---- 相机图像可视化 ----

@@ -125,8 +125,9 @@ def check_data_path():
     """检查 nuScenes 数据路径是否存在"""
     try:
         from src.utils.config import get_paths_config
+        from src.utils.path_utils import resolve_project_path
         paths = get_paths_config()
-        dataroot = paths['nuscenes_dataroot']
+        dataroot = resolve_project_path(paths['nuscenes_dataroot'])
         version = paths.get('nuscenes_version', 'v1.0-mini')
         
         if os.path.exists(dataroot):
@@ -136,17 +137,29 @@ def check_data_path():
             version_dir = os.path.join(dataroot, version)
             if os.path.exists(version_dir):
                 print(f"  ✅ 数据版本目录存在: {version_dir}")
+                
+                # 检查核心 json 文件
+                required_jsons = ['sample.json', 'sample_data.json', 'ego_pose.json', 'calibrated_sensor.json']
+                missing_jsons = [j for j in required_jsons if not os.path.exists(os.path.join(version_dir, j))]
+                if missing_jsons:
+                    print(f"  ❌ 核心数据表缺失: {', '.join(missing_jsons)}")
+                    print(f"     请确认 nuScenes {version} 数据已正确解压，且包含完整的 json 表")
+                    return False
+                else:
+                    print(f"  ✅ 核心数据表完整")
             else:
-                print(f"  ⚠️  数据版本目录不存在: {version_dir}")
+                print(f"  ❌ 数据版本目录不存在: {version_dir}")
                 print(f"     请确认 nuScenes {version} 数据已正确解压")
+                return False
             
             # 检查 samples 目录
             samples_dir = os.path.join(dataroot, 'samples')
             if os.path.exists(samples_dir):
                 print(f"  ✅ samples 目录存在")
             else:
-                print(f"  ⚠️  samples 目录不存在")
+                print(f"  ❌ samples 目录不存在")
                 print(f"     nuScenes 数据可能未完整解压")
+                return False
             
             return True
         else:
