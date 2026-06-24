@@ -1,0 +1,26 @@
+# =============================================================================
+# paths.yaml — 项目路径配置
+# =============================================================================
+# 所有路径统一在此配置，脚本中不要写死路径。
+# 请根据你的实际环境修改 nuscenes_dataroot 和 nuscenes_version。
+# =============================================================================
+
+# nuScenes 数据集根目录（解压后的文件夹路径）
+# 示例:
+#   Windows: D:/data/nuscenes
+#   Linux:   /home/user/data/nuscenes
+# 该目录下应包含: maps/, samples/, sweeps/, v1.0-mini/ 等子文件夹
+nuscenes_dataroot: "./data/nuscenes"
+
+# nuScenes 数据集版本
+# 入门建议使用 "v1.0-mini"（约 4GB），完整版为 "v1.0-trainval"（约 300GB+）
+nuscenes_version: "v1.0-mini"
+
+# 输出根目录（所有可视化结果和模型输出保存到这里）
+output_root: "outputs"
+
+# 各类输出子目录
+output_images: "outputs/images"
+output_bev: "outputs/bev"
+output_projections: "outputs/projections"
+output_predictions: "outputs/predictions"

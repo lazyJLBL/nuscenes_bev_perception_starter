@@ -1,0 +1,56 @@
+# =============================================================================
+# dataset.yaml — 数据集相关配置
+# =============================================================================
+
+# nuScenes 6 个环视摄像头名称
+# CAM_FRONT:       前方摄像头（正前方）
+# CAM_FRONT_LEFT:  左前方摄像头
+# CAM_FRONT_RIGHT: 右前方摄像头
+# CAM_BACK:        后方摄像头（正后方）
+# CAM_BACK_LEFT:   左后方摄像头
+# CAM_BACK_RIGHT:  右后方摄像头
+camera_channels:
+  - "CAM_FRONT"
+  - "CAM_FRONT_LEFT"
+  - "CAM_FRONT_RIGHT"
+  - "CAM_BACK"
+  - "CAM_BACK_LEFT"
+  - "CAM_BACK_RIGHT"
+
+# LiDAR 通道名
+lidar_channel: "LIDAR_TOP"
+
+# BEV（鸟瞰图）参数
+bev:
+  # BEV 范围（单位：米），以 ego vehicle 为中心
+  x_range: [-50.0, 50.0]
+  y_range: [-50.0, 50.0]
+  z_range: [-5.0, 3.0]
+  # BEV 分辨率（米/像素）
+  resolution: 0.2
+
+# nuScenes 中常用的检测类别
+detection_classes:
+  - "car"
+  - "truck"
+  - "bus"
+  - "trailer"
+  - "construction_vehicle"
+  - "pedestrian"
+  - "motorcycle"
+  - "bicycle"
+  - "barrier"
+  - "traffic_cone"
+
+# 可视化颜色映射（BGR 格式，用于 OpenCV）
+class_colors:
+  car: [0, 255, 0]           # 绿色
+  truck: [0, 200, 255]       # 橙色
+  bus: [255, 100, 0]         # 蓝色
+  trailer: [200, 200, 0]     # 青色
+  construction_vehicle: [0, 0, 255]  # 红色
+  pedestrian: [255, 0, 255]  # 紫色
+  motorcycle: [255, 255, 0]  # 黄色
+  bicycle: [128, 255, 0]     # 浅绿
+  barrier: [128, 128, 128]   # 灰色
+  traffic_cone: [0, 128, 255] # 深橙

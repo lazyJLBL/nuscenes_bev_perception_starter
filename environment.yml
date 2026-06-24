@@ -1,0 +1,47 @@
+# =============================================================================
+# environment.yml — Conda 环境配置
+# =============================================================================
+# 使用方法:
+#   conda env create -f environment.yml
+#   conda activate nuscenes_bev
+#
+# 注意: PyTorch 需要根据 CUDA 版本调整，下面默认使用 CUDA 11.8
+# 如果你的显卡不支持 CUDA 11.8，请修改 pytorch-cuda 版本或使用 cpuonly
+# =============================================================================
+
+name: nuscenes_bev
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.10
+  - pip>=21.0
+
+  # PyTorch（根据你的 CUDA 版本调整）
+  # CUDA 11.8 版本:
+  - pytorch>=2.0.0
+  - torchvision>=0.15.0
+  - torchaudio>=2.0.0
+  - pytorch-cuda=11.8
+
+  # 如果没有 NVIDIA 显卡，取消下面的注释，注释掉上面的 pytorch-cuda 行:
+  # - cpuonly
+
+  # 科学计算与可视化
+  - numpy>=1.20.0
+  - matplotlib>=3.4.0
+  - scipy>=1.7.0
+
+  # 配置与工具
+  - pyyaml>=5.4.0
+  - tqdm>=4.60.0
+
+  # pip 安装的包
+  - pip:
+    - nuscenes-devkit>=1.1.9
+    - opencv-python>=4.5.0
+    - pyquaternion>=0.9.9
+    - Pillow>=8.0.0

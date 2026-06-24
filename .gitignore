@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments
+.venv/
+venv/
+env/
+.conda/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Outputs and generated files
+outputs/
+results/
+runs/
+logs/
+checkpoints/
+work_dirs/
+wandb/
+tensorboard/
+*.log
+
+# Data
+data/
+datasets/
+nuscenes/
+v1.0-mini/
+v1.0-trainval/
+samples/
+sweeps/
+maps/
+
+# Models
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.engine
+
+# Build
+dist/
+build/
+
+# External frameworks
+mmdetection3d/
+OpenPCDet/

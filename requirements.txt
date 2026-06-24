@@ -1,0 +1,45 @@
+# =============================================================================
+# requirements.txt — Python 依赖清单
+# =============================================================================
+# 安装命令: pip install -r requirements.txt
+#
+# 注意事项：
+# 1. PyTorch 需要根据你的 CUDA 版本单独安装，请参考 https://pytorch.org
+#    示例（CUDA 11.8）:
+#      pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#    示例（CPU only）:
+#      pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+#
+# 2. MMDetection3D 需要单独安装，请参考 README.md 中的说明
+#
+# 3. 以下为本项目核心依赖（不含 PyTorch 和 MMDetection3D）
+# =============================================================================
+
+# nuScenes 官方开发工具包
+nuscenes-devkit>=1.1.9
+
+# 科学计算
+numpy>=1.20.0
+
+# 图像处理
+opencv-python>=4.5.0
+Pillow>=8.0.0
+
+# 可视化
+matplotlib>=3.4.0
+
+# 四元数处理（坐标系旋转必需）
+pyquaternion>=0.9.9
+
+# 配置文件解析
+PyYAML>=5.4.0
+
+# 进度条
+tqdm>=4.60.0
+
+# 3D 点云可视化（可选，如果你想要交互式 3D 可视化）
+# open3d>=0.13.0
+
+# Jupyter 支持（可选，用于交互式探索）
+# jupyter>=1.0.0
+# ipywidgets>=7.6.0
