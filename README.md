@@ -133,22 +133,25 @@ python scripts/05_generate_simple_bev.py
 # 例如: python scripts/02_visualize_samples.py --sample-token <token>
 ```
 
-### 阶段 3：3D 检测 Baseline 流程指南 (仅供参考)
-这部分主要是展示真实自动驾驶算法的训练与推理流程指南，并不在本项目内直接运行复杂的训练。
+### 阶段 3：3D 检测 Baseline 流程 (自包含 PyTorch 闭环)
+本项目内置了一个无需复杂 CUDA 编译的简易 PointPillars 检测器，方便新人在 CPU 或任意显卡上验证全流程（即“跑通代码闭环”）。
 
 ```bash
-# 检查并准备检测框架环境配置指南
-python scripts/06_prepare_detection_baseline.py
+# 提取 nuScenes 训练和验证集 tokens
+python scripts/06_prepare_detection_baseline.py --execute
 # 📖 推荐阅读: docs/04_3d_detection_baseline.md
 
-# 打印训练命令指南 (不执行真实训练)
-python scripts/07_train_baseline.py
+# 执行基于 Dummy Loss 的全流程训练
+python scripts/07_train_baseline.py --execute
 
-# 打印推理命令和示例格式 (不执行真实推理)
-python scripts/08_inference_baseline.py
+# 在验证集上执行前向推理，并调用官方工具评估指标 (mAP/NDS)
+python scripts/08_inference_baseline.py --execute
 
-# 可视化检测结果 (当前使用 GT 作为效果演示，读取预测结果为 TODO)
+# 可视化预测结果 (加载真实 JSON 预测，并在 BEV 上与 Ground Truth 对比)
 python scripts/09_visualize_predictions.py
+
+# 自动化检查整个训练与推理流程的生成产物
+python scripts/10_check_detection_results.py
 ```
 
 ---

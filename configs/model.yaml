@@ -5,10 +5,22 @@
 # 选用的 baseline 模型
 baseline_model: "pointpillars"
 
-# 检测框架（mmdetection3d 或 openpcdet）
-detection_framework: "mmdetection3d"
+# 检测框架（mmdetection3d 或 openpcdet 或 simple_pillars）
+detection_framework: "simple_pillars"
 
-# PointPillars 相关配置
+# 自包含的简易检测器配置
+detection:
+  framework: "simple_pillars"
+  work_dir: "outputs/predictions/train_results"
+  prediction_file: "outputs/predictions/detection_results.json"
+  metrics_file: "outputs/predictions/metrics_summary.json"
+  epochs: 1
+  batch_size: 2
+  workers: 0
+  learning_rate: 0.001
+  device: "auto"
+
+# PointPillars 相关配置 (用于数据处理)
 pointpillars:
   # 点云体素化参数 (nuScenes 标准)
   voxel_size: [0.2, 0.2, 8.0]
@@ -27,12 +39,3 @@ pointpillars:
   inference:
     score_threshold: 0.3
     nms_threshold: 0.2
-
-# MMDetection3D 相关路径（安装后填入）
-mmdet3d:
-  # MMDetection3D 安装路径（如果使用 pip 安装则不需要填写）
-  install_path: ""
-  # 配置文件路径（相对于 mmdet3d 安装目录）
-  config_file: "configs/pointpillars/pointpillars_hv_fpn_sst_secfpn_8xb4-2x_nus-3d.py"
-  # 预训练权重路径（可选）
-  checkpoint_file: ""

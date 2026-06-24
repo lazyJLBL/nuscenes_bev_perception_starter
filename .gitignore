@@ -39,6 +39,7 @@ v1.0-trainval/
 samples/
 sweeps/
 maps/
+*.pkl
 
 # Models
 *.pth

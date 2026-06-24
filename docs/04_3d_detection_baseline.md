@@ -156,7 +156,28 @@ NDS 越高越好，满分 1.0。
 
 > ⚠️ 以上数据为完整 nuScenes 数据集上的参考值，非 mini 数据集。
 
-## 6. 为什么 mini 数据集训练结果不能代表真实性能
+## 6. 本项目的 Baseline 实现 (SimplePointPillars)
+
+为了在不需要复杂编译（尤其是 Windows 上的 CUDA 编译）的情况下跑通 3D 检测的全流程闭环，本项目实现了一个**自包含的纯 PyTorch** PointPillars (SimplePointPillars)。
+
+### 6.1 核心特点
+1. **纯 PyTorch**: 不依赖 `spconv`，使用简化的 Voxelizer 避开了 C++/CUDA 扩展。
+2. **CPU 兼容**: 可以在没有 CUDA 的机器上运行验证流程（速度较慢，仅供教学）。
+3. **闭环验证**: 包含数据准备、训练（Dummy Loss 跑通流程）、推理、评估和可视化。
+
+### 6.2 流程与脚本
+1. **准备数据**: `python scripts/06_prepare_detection_baseline.py --execute` 
+   - 提取 nuScenes tokens 并分为 train/val 列表。
+2. **训练**: `python scripts/07_train_baseline.py --execute`
+   - 使用随机目标损失函数，确保网络各层梯度流动。
+3. **推理**: `python scripts/08_inference_baseline.py --execute`
+   - 对验证集进行前向推理，并生成符合 nuScenes submission 格式的 JSON。
+4. **可视化**: `python scripts/09_visualize_predictions.py`
+   - 在 BEV 俯视图上对比 Ground Truth 和预测框。
+5. **指标检查**: `python scripts/10_check_detection_results.py`
+   - 自动检查生成的各种产物，并读取打印核心评估指标（mAP，NDS 等）。
+
+## 7. 为什么 mini 数据集训练结果不能代表真实性能
 
 | 对比项 | v1.0-mini | v1.0-trainval |
 |--------|-----------|---------------|
@@ -165,36 +186,6 @@ NDS 越高越好，满分 1.0。
 | 数据量 | ~4 GB | ~300+ GB |
 | 训练结果 | 仅验证流程 | 代表真实性能 |
 
-mini 数据集太小，存在以下问题：
-1. **数据量不足**：深度学习模型需要大量数据才能泛化
-2. **场景多样性不足**：只有 10 个场景，无法覆盖各种路况
-3. **容易过拟合**：模型可能只是"记住"了训练数据
-4. **评估不可靠**：验证集太小，指标波动大
+mini 数据集太小，且本项目的 Baseline 采用的是简化版结构（未引入复杂的 Anchor Assigning 与 NMS），因此训练结果仅用于验证代码闭环（mAP / NDS 趋近于 0），不要期待在 mini 数据集上获得可用的真实感知能力。
 
-**结论**: 用 mini 跑通流程，用完整数据集评估性能。
-
-## 7. 常见报错处理
-
-### CUDA out of memory
-```
-RuntimeError: CUDA out of memory
-```
-→ 减少 batch_size（改为 1 或 2）
-
-### 数据文件不存在
-```
-FileNotFoundError: nuscenes_infos_train.pkl not found
-```
-→ 先运行数据准备脚本（`create_data.py`）
-
-### MMCV 版本不匹配
-```
-ImportError: cannot import name 'xxx' from 'mmcv'
-```
-→ 检查 mmcv、mmdet、mmdet3d 版本是否匹配
-
-### NaN loss
-```
-Loss becomes NaN during training
-```
-→ 减小学习率，检查数据是否正确
+**结论**: 用 mini 跑通流程，用完整的检测框架（如 OpenPCDet 或 MMDetection3D）和完整数据集去训练出可用性能。
