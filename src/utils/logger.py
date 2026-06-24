@@ -14,6 +14,13 @@ logger.py — 日志工具
 import logging
 import sys
 
+# Windows 下修复控制台输出 emoji 导致 UnicodeEncodeError 的问题
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
 
 def setup_logger(name, level=logging.INFO):
     """

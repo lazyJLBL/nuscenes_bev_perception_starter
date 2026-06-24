@@ -22,7 +22,9 @@ def test_camera_to_image():
         [0.0, 0.0, 1.0]
     ])
     
-    pixels, depth = camera_to_image(points, intrinsic)
+    res = camera_to_image(points, intrinsic)
+    pixels = res[:, :2]
+    depth = res[:, 2]
     
     assert pixels.shape == (2, 2)
     assert depth.shape == (2,)
@@ -36,7 +38,9 @@ def test_camera_to_image():
     points_nx4 = np.array([
         [1.0, 2.0, 5.0, 1.0],
     ])
-    pixels_4, depth_4 = camera_to_image(points_nx4, intrinsic)
+    res_4 = camera_to_image(points_nx4, intrinsic)
+    pixels_4 = res_4[:, :2]
+    depth_4 = res_4[:, 2]
     assert pixels_4.shape == (1, 2)
     assert depth_4.shape == (1,)
     assert depth_4[0] == 5.0

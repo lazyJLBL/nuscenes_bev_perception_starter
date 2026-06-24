@@ -10,7 +10,7 @@
 #   Windows: D:/data/nuscenes
 #   Linux:   /home/user/data/nuscenes
 # 该目录下应包含: maps/, samples/, sweeps/, v1.0-mini/ 等子文件夹
-nuscenes_dataroot: "./data/nuscenes"
+nuscenes_dataroot: "data"
 
 # nuScenes 数据集版本
 # 入门建议使用 "v1.0-mini"（约 4GB），完整版为 "v1.0-trainval"（约 300GB+）

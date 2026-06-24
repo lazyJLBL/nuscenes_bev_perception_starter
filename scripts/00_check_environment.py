@@ -19,6 +19,12 @@
 import sys
 import os
 
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
 # 将项目根目录添加到 Python 路径，使得 src 包可以被导入
 # 这是因为我们从 scripts/ 目录运行脚本，需要能找到 src/
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
