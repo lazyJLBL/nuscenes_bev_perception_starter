@@ -24,6 +24,8 @@ outputs/
 results/
 runs/
 logs/
+review_artifacts/
+review_artifacts.zip
 checkpoints/
 work_dirs/
 wandb/
@@ -55,3 +57,7 @@ build/
 # External frameworks
 mmdetection3d/
 OpenPCDet/
+
+# Cloud Sync Temporary Files
+.tmp.driveupload/
+.tmp.drivedownload/
