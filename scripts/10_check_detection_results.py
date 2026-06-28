@@ -10,14 +10,28 @@
 import sys
 import os
 import json
+import argparse
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
 from src.utils.logger import print_header, print_separator
 from src.utils.config import get_model_config
+from src.experiments.registry import latest_run_record
+from src.experiments.result_validation import validate_detection_outputs
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="检查 3D 检测和实验平台产物")
+    parser.add_argument(
+        "--allow-zero-metrics",
+        action="store_true",
+        help="允许 mAP/NDS 全 0，仅用于调试产物格式，不用于正式 benchmark",
+    )
+    return parser.parse_args()
 
 def main():
+    args = parse_args()
     print_header("3D 检测产物检查")
     
     model_cfg = get_model_config()
@@ -73,11 +87,38 @@ def main():
                 print(f"    * {k}: {v:.4f}")
         except Exception as e:
             print(f"  ❌ 无法读取指标: {e}")
+            all_passed = False
+
+    print_separator()
+
+    print("📌 4. 检查结果有效性:")
+    record = latest_run_record(PROJECT_ROOT)
+    run_record_file = None
+    if record and record.get("output_dir"):
+        run_record_file = os.path.join(record["output_dir"], "run_record.json")
+        print(f"  ✅ 最新实验记录: {run_record_file}")
+    else:
+        print("  ❌ 未找到 outputs/experiments/*/run_record.json")
+        all_passed = False
+
+    validation = validate_detection_outputs(
+        prediction_file=pred_file,
+        metrics_file=metrics_file,
+        run_record_file=run_record_file,
+        require_positive_metrics=not args.allow_zero_metrics,
+    )
+    if validation.ok:
+        print(f"  ✅ 预测数量: {validation.prediction_count}")
+        print("  ✅ 指标字段与实验记录有效")
+    else:
+        for err in validation.errors:
+            print(f"  ❌ {err}")
+        all_passed = False
             
     print_separator()
     
     if all_passed:
-        print("🎉 所有检查通过！闭环验证成功。")
+        print("🎉 所有检查通过！实验产物可用于对比。")
         sys.exit(0)
     else:
         print("⚠️ 存在缺失的产物，请检查前面的步骤是否执行成功。")
