@@ -31,6 +31,7 @@ work_dirs/
 wandb/
 tensorboard/
 *.log
+backend/static/
 
 # Data
 data/
@@ -42,6 +43,12 @@ samples/
 sweeps/
 maps/
 *.pkl
+!backend/data/
+!backend/data/**
+backend/data/__pycache__/
+backend/data/**/*.py[cod]
+!frontend/public/results/
+!frontend/public/results/**
 
 # Models
 *.pth

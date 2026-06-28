@@ -154,6 +154,40 @@ python scripts/09_visualize_predictions.py
 python scripts/10_check_detection_results.py
 ```
 
+### nuScenes-only 离线实验平台
+
+当前项目也提供了一个轻量后端 + 前端，用于对比感知、决策、规划组合。它默认只使用 nuScenes，不引入 nuPlan/CARLA，适合 4070 / 32GB 机器做离线实验。
+
+```bash
+# 启动后端 API，默认端口 8010
+python -m backend.main
+
+# 启动前端
+cd frontend
+npm install
+npm run dev
+```
+
+前端默认运行在 `http://127.0.0.1:5174`，并代理访问 `http://127.0.0.1:8010/api`；如需改后端地址，可设置 `VITE_BACKEND_URL`。打开首页后会直接进入 nuScenes 离线实验沙盒，旧的模块管理页面只保留在开发调试路由 `/dev/modules/preprocessing`。离线实验会写入 `outputs/experiments/<run_id>/run_record.json`，并可在“实验记录”页面对比最近运行结果。
+
+仓库根目录也提供了代理脚本，可直接运行：
+
+```bash
+npm run dev
+```
+
+严格产物检查会拒绝 mAP/NDS 全 0 的检测结果：
+
+```bash
+python scripts/10_check_detection_results.py
+```
+
+如只想调试文件格式，可临时使用：
+
+```bash
+python scripts/10_check_detection_results.py --allow-zero-metrics
+```
+
 ---
 
 ## ❓ 常见问题 FAQ

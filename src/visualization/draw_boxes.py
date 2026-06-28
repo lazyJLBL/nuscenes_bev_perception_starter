@@ -18,6 +18,9 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from src.geometry.boxes import Box3D
 from src.utils.config import get_dataset_config
+from src.utils.plotting import configure_matplotlib_chinese
+
+configure_matplotlib_chinese()
 
 
 # 获取类别颜色

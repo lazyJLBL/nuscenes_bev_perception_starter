@@ -27,9 +27,12 @@ from src.visualization.draw_bev import visualize_bev_channels, draw_boxes_on_bev
 from src.utils.path_utils import ensure_output_dirs, get_output_path
 from src.utils.config import get_dataset_config
 from src.utils.logger import print_header
+from src.utils.plotting import configure_matplotlib_chinese
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+configure_matplotlib_chinese()
 
 
 def main():

@@ -26,6 +26,9 @@ from src.geometry.transforms import lidar_to_ego
 from src.visualization.draw_boxes import draw_boxes_on_image, draw_boxes_bev
 from src.utils.path_utils import ensure_output_dirs, get_output_path
 from src.utils.logger import print_header
+from src.utils.plotting import configure_matplotlib_chinese
+
+configure_matplotlib_chinese()
 
 
 def main():

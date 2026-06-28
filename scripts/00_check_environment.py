@@ -67,7 +67,9 @@ def check_cuda():
             cuda_version = torch.version.cuda
             print(f"  ✅ CUDA 可用: {cuda_version}")
             print(f"     GPU 设备: {gpu_name}")
-            print(f"     GPU 显存: {torch.cuda.get_device_properties(0).total_mem / 1024**3:.1f} GB")
+            gpu_props = torch.cuda.get_device_properties(0)
+            total_memory = getattr(gpu_props, 'total_memory', getattr(gpu_props, 'total_mem', 0))
+            print(f"     GPU 显存: {total_memory / 1024**3:.1f} GB")
             return True
         else:
             print("  ⚠️  CUDA 不可用（将使用 CPU）")

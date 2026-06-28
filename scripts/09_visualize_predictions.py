@@ -27,6 +27,9 @@ from src.visualization.draw_bev import draw_boxes_on_bev_image
 from src.utils.path_utils import ensure_output_dirs, get_output_path
 from src.utils.config import get_dataset_config, get_model_config
 from src.utils.logger import print_header
+from src.utils.plotting import configure_matplotlib_chinese
+
+configure_matplotlib_chinese()
 
 def json_to_boxes(preds: list) -> list[Box3D]:
     """Convert nuScenes prediction dicts to Box3D objects."""

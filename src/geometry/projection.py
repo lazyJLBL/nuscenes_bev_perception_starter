@@ -21,6 +21,9 @@ import matplotlib.pyplot as plt
 from typing import Tuple, Optional
 
 from .transforms import lidar_to_camera, camera_to_image
+from src.utils.plotting import configure_matplotlib_chinese
+
+configure_matplotlib_chinese()
 
 
 def project_lidar_to_camera_image(

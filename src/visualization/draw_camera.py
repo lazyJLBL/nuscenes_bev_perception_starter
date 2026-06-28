@@ -17,6 +17,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Dict, Optional
 
+from src.utils.plotting import configure_matplotlib_chinese
+
+configure_matplotlib_chinese()
+
 
 # 6 个摄像头的显示布局（2行3列）
 CAMERA_LAYOUT = [

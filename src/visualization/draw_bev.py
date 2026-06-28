@@ -16,6 +16,9 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from src.geometry.boxes import Box3D
 from src.bev.simple_bev import SimpleBEVGenerator
+from src.utils.plotting import configure_matplotlib_chinese
+
+configure_matplotlib_chinese()
 
 
 def visualize_bev_channels(

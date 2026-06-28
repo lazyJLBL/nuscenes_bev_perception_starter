@@ -18,6 +18,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Optional, Tuple
 
+from src.utils.plotting import configure_matplotlib_chinese
+
+configure_matplotlib_chinese()
+
 
 def visualize_lidar_topdown(
     points: np.ndarray,
