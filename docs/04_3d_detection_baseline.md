@@ -163,19 +163,23 @@ NDS 越高越好，满分 1.0。
 ### 6.1 核心特点
 1. **纯 PyTorch**: 不依赖 `spconv`，使用简化的 Voxelizer 避开了 C++/CUDA 扩展。
 2. **CPU 兼容**: 可以在没有 CUDA 的机器上运行验证流程（速度较慢，仅供教学）。
-3. **闭环验证**: 包含数据准备、训练（Dummy Loss 跑通流程）、推理、评估和可视化。
+3. **真实检测训练目标**: 使用 anchor 分配、Focal Loss、SmoothL1 回归损失和方向分类损失。
+4. **推理后处理**: 将模型输出 decode 为 3D box，并在 BEV 平面做分类 NMS。
+5. **闭环验证**: 包含数据准备、训练、模型导出、推理、评估、可视化和产物检查。
 
 ### 6.2 流程与脚本
 1. **准备数据**: `python scripts/06_prepare_detection_baseline.py --execute` 
    - 提取 nuScenes tokens 并分为 train/val 列表。
-2. **训练**: `python scripts/07_train_baseline.py --execute`
-   - 使用随机目标损失函数，确保网络各层梯度流动。
+2. **训练**: `python scripts/07_train_baseline.py --execute --epochs 5 --batch-size 2`
+   - 使用 anchor-GT 匹配结果训练分类、框回归和方向分类头。
+   - 训练结束会保存 `latest.pth`、`best.pth` 和自包含的 `model_exported.pth`。
 3. **推理**: `python scripts/08_inference_baseline.py --execute`
-   - 对验证集进行前向推理，并生成符合 nuScenes submission 格式的 JSON。
+   - 优先加载 `model_exported.pth`，对验证集进行前向推理，并生成符合 nuScenes submission 格式的 JSON。
 4. **可视化**: `python scripts/09_visualize_predictions.py`
    - 在 BEV 俯视图上对比 Ground Truth 和预测框。
 5. **指标检查**: `python scripts/10_check_detection_results.py`
-   - 自动检查生成的各种产物，并读取打印核心评估指标（mAP，NDS 等）。
+   - 自动检查预测 JSON、nuScenes 指标和离线实验记录。
+   - 默认拒绝 mAP/NDS 全 0 的结果；调试文件格式时可加 `--allow-zero-metrics`。
 
 ## 7. 为什么 mini 数据集训练结果不能代表真实性能
 
@@ -186,6 +190,6 @@ NDS 越高越好，满分 1.0。
 | 数据量 | ~4 GB | ~300+ GB |
 | 训练结果 | 仅验证流程 | 代表真实性能 |
 
-mini 数据集太小，且本项目的 Baseline 采用的是简化版结构（未引入复杂的 Anchor Assigning 与 NMS），因此训练结果仅用于验证代码闭环（mAP / NDS 趋近于 0），不要期待在 mini 数据集上获得可用的真实感知能力。
+mini 数据集太小，且本项目的 Baseline 仍然是教学用简化结构：anchor 尺寸、IoU 匹配、BEV NMS 和网络容量都比工业级框架更轻量。因此训练结果主要用于验证代码闭环，不要期待在 mini 数据集上获得可部署的真实感知能力。
 
 **结论**: 用 mini 跑通流程，用完整的检测框架（如 OpenPCDet 或 MMDetection3D）和完整数据集去训练出可用性能。

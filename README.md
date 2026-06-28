@@ -19,7 +19,8 @@
 3. **点云投影**：将 3D LiDAR 点云精准投影到 2D 摄像头图像上。
 4. **生成 BEV**：从点云生成高度图、密度图、强度图三通道 BEV 表示。
 5. **3D 可视化**：在图像和 BEV 俯视图中画出精准的 3D 边界框（Bounding Boxes）。
-6. **3D 检测**：跑通 PointPillars 3D 检测 baseline。
+6. **3D 检测**：跑通带 anchor、Focal Loss、SmoothL1、NMS 的 SimplePointPillars baseline。
+7. **离线实验平台**：用 FastAPI + Vue 对比感知、决策、规划组合，并保存可复现实验记录。
 
 ---
 
@@ -27,6 +28,10 @@
 
 ```text
 nuscenes_bev_perception_starter/
+├── backend/                  # 🌐 FastAPI 后端：模块查询、实验运行、上传推理
+│   ├── api/routes.py         # API 路由
+│   ├── data/mock_data.py     # 兼容旧导入的模块配置入口
+│   └── main.py               # 后端启动入口，默认端口 8010
 ├── configs/                  # ⚙️ 配置文件 (路径、数据集、模型)
 ├── docs/                     # 📚 核心概念学习文档 (初学者必读!)
 │   ├── 01_nuscenes_data_structure.md  # 数据集结构详解
@@ -34,6 +39,10 @@ nuscenes_bev_perception_starter/
 │   ├── 03_bev_explanation.md          # BEV 鸟瞰图详解
 │   ├── 04_3d_detection_baseline.md    # 3D 检测原理解析
 │   └── 05_next_steps_to_planning.md   # 后续进阶路线图
+├── frontend/                 # 🖥️ Vue 3 + Vite 离线实验沙盒
+│   ├── src/views/            # 沙盒、实验记录、系统状态等页面
+│   ├── src/components/       # 模型选择、上传推理、图片查看组件
+│   └── vite.config.js        # 5174 前端开发端口与 API 代理
 ├── scripts/                  # 🚀 执行脚本 (按数字顺序运行)
 │   ├── 00_check_environment.py        # 检查环境
 │   ├── 01_check_nuscenes_data.py      # 检查数据集
@@ -44,13 +53,19 @@ nuscenes_bev_perception_starter/
 │   ├── 06_prepare_detection_baseline.py # 准备 3D 检测
 │   ├── 07_train_baseline.py           # 训练 PointPillars
 │   ├── 08_inference_baseline.py       # 模型推理
-│   └── 09_visualize_predictions.py    # 可视化预测结果
+│   ├── 09_visualize_predictions.py    # 可视化预测结果
+│   ├── 10_check_detection_results.py  # 检查预测、指标、实验记录
+│   └── export_model.py                # 导出自包含模型文件
 ├── src/                      # 🧠 核心源码
 │   ├── bev/                  # BEV 生成逻辑
 │   ├── dataset/              # 数据集加载逻辑
+│   ├── detection/            # SimplePointPillars、anchor、loss、NMS、训练推理工具
+│   ├── experiments/          # nuScenes-only 感知/决策/规划离线实验
 │   ├── geometry/             # 坐标系转换、投影、3D Box逻辑
 │   ├── utils/                # 工具类 (日志、路径、配置)
 │   └── visualization/        # 绘图逻辑
+├── tests/                    # ✅ API、实验组件、结果校验、基础几何/BEV 测试
+├── package.json              # 根目录 npm 代理脚本
 └── outputs/                  # 🖼️ 所有脚本的输出文件将保存在这里
 ```
 
@@ -59,6 +74,7 @@ nuscenes_bev_perception_starter/
 ## 🛠️ 环境配置
 
 本项目支持 Python 3.8+ 和 PyTorch 2.0+。
+如果要运行 Web 实验平台，还需要 Node.js 18+ 和 npm。
 
 ### 1. 克隆代码并进入目录
 ```bash
@@ -78,6 +94,11 @@ conda activate nuscenes_bev
 ### 3. 使用 Pip 安装 (备选)
 ```bash
 pip install -r requirements.txt
+```
+
+### 4. 安装前端依赖（仅 Web 实验平台需要）
+```bash
+npm install --prefix frontend
 ```
 
 ---
@@ -134,17 +155,17 @@ python scripts/05_generate_simple_bev.py
 ```
 
 ### 阶段 3：3D 检测 Baseline 流程 (自包含 PyTorch 闭环)
-本项目内置了一个无需复杂 CUDA 编译的简易 PointPillars 检测器，方便新人在 CPU 或任意显卡上验证全流程（即“跑通代码闭环”）。
+本项目内置了一个无需复杂 CUDA 编译的 SimplePointPillars 检测器，使用 anchor 分配、Focal Loss、SmoothL1 回归损失、方向分类损失和 BEV NMS，方便新人在 CPU 或任意显卡上验证全流程。
 
 ```bash
 # 提取 nuScenes 训练和验证集 tokens
 python scripts/06_prepare_detection_baseline.py --execute
 # 📖 推荐阅读: docs/04_3d_detection_baseline.md
 
-# 执行基于 Dummy Loss 的全流程训练
-python scripts/07_train_baseline.py --execute
+# 执行真实检测损失训练，并自动保存 latest/best/model_exported.pth
+python scripts/07_train_baseline.py --execute --epochs 5 --batch-size 2
 
-# 在验证集上执行前向推理，并调用官方工具评估指标 (mAP/NDS)
+# 在验证集上执行前向推理，加载导出模型并调用官方工具评估指标 (mAP/NDS)
 python scripts/08_inference_baseline.py --execute
 
 # 可视化预测结果 (加载真实 JSON 预测，并在 BEV 上与 Ground Truth 对比)
@@ -154,29 +175,35 @@ python scripts/09_visualize_predictions.py
 python scripts/10_check_detection_results.py
 ```
 
-### nuScenes-only 离线实验平台
+### 阶段 4：nuScenes-only 离线实验平台
 
 当前项目也提供了一个轻量后端 + 前端，用于对比感知、决策、规划组合。它默认只使用 nuScenes，不引入 nuPlan/CARLA，适合 4070 / 32GB 机器做离线实验。
 
 ```bash
-# 启动后端 API，默认端口 8010
+# 终端 1：启动后端 API，默认端口 8010
 python -m backend.main
 
-# 启动前端
-cd frontend
-npm install
+# 终端 2：启动前端，默认端口 5174
 npm run dev
 ```
 
-前端默认运行在 `http://127.0.0.1:5174`，并代理访问 `http://127.0.0.1:8010/api`；如需改后端地址，可设置 `VITE_BACKEND_URL`。打开首页后会直接进入 nuScenes 离线实验沙盒，旧的模块管理页面只保留在开发调试路由 `/dev/modules/preprocessing`。离线实验会写入 `outputs/experiments/<run_id>/run_record.json`，并可在“实验记录”页面对比最近运行结果。
+前端默认运行在 `http://127.0.0.1:5174`，并代理访问 `http://127.0.0.1:8010/api`；如需改后端地址，可设置 `VITE_BACKEND_URL`。打开首页后会直接进入 nuScenes 离线实验沙盒，旧的模块管理页面只保留在开发调试路由 `/dev/modules/preprocessing`。
 
-仓库根目录也提供了代理脚本，可直接运行：
+常用 API：
 
-```bash
-npm run dev
+```text
+GET  /api/health
+GET  /api/modules
+GET  /api/experiments
+GET  /api/experiments/latest
+POST /api/run_experiment
+POST /api/run_sandbox
+POST /api/inference/{model_id}
 ```
 
-严格产物检查会拒绝 mAP/NDS 全 0 的检测结果：
+离线实验会写入 `outputs/experiments/<run_id>/run_record.json`，并可在“实验记录”页面对比最近运行结果。PointPillars 模型上传推理会优先读取 `outputs/predictions/train_results/model_exported.pth`，没有导出模型时依次尝试 `best.pth` 和 `latest.pth`。
+
+严格产物检查默认会拒绝 mAP/NDS 全 0 的检测结果：
 
 ```bash
 python scripts/10_check_detection_results.py
@@ -190,16 +217,31 @@ python scripts/10_check_detection_results.py --allow-zero-metrics
 
 ---
 
+## ✅ 开发验证
+
+```bash
+# Python 单元测试
+pytest -q
+
+# 前端生产构建
+npm --prefix frontend run build
+```
+
+---
+
 ## ❓ 常见问题 FAQ
 
 **Q: 运行脚本报错 `FileNotFoundError: 配置文件不存在`？**
 A: 请确保你在项目的**根目录**下运行脚本（即 `python scripts/xxx.py`），而不是进入 `scripts` 目录内运行。
 
 **Q: 我没有 GPU 可以运行吗？**
-A: `00` 到 `05` 的可视化脚本**完全不需要 GPU**，用 CPU 几秒钟就能跑完。只有 `07` 和 `08` 的训练/推理脚本需要 GPU。
+A: `00` 到 `05` 的可视化脚本**完全不需要 GPU**，用 CPU 几秒钟就能跑完。`07` 和 `08` 可以用 CPU 跑通流程，但会明显更慢；推荐使用 CUDA。
 
 **Q: `07_train_baseline.py` 报错 `CUDA out of memory` 怎么办？**
-A: 你的显存不足。请在 MMDetection3D 的配置文件中找到 `train_dataloader.batch_size`，将其改小（例如改为 1）。
+A: 你的显存不足。请把命令里的 `--batch-size` 调小，例如 `python scripts/07_train_baseline.py --execute --batch-size 1`；也可以在 `configs/model.yaml` 中调小 detection 配置。
+
+**Q: Web 前端打不开后端数据怎么办？**
+A: 先确认 `python -m backend.main` 正在运行，再访问 `http://127.0.0.1:8010/api/health`。如果后端端口不是 8010，启动前端时设置 `VITE_BACKEND_URL=http://127.0.0.1:<端口> npm run dev`。
 
 **Q: 为什么生成的 BEV 图像全黑？**
 A: 可能是坐标系转换错误，或者点云过滤范围不对。请检查你是否正确应用了 `calibrated_sensor` 和 `ego_pose` 变换。本项目提供的源码已经处理了这些细节，你可以仔细阅读 `src/geometry/transforms.py`。
