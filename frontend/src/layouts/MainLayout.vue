@@ -2,13 +2,14 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSystemStore } from '../store/systemStore'
-import { 
-  CarFront, 
-  Menu, 
-  UserCircle,
+import {
   Activity,
   BarChart3,
-  Server
+  CarFront,
+  Menu,
+  Server,
+  Settings,
+  UserCircle
 } from 'lucide-vue-next'
 
 const systemStore = useSystemStore()
@@ -17,16 +18,19 @@ const router = useRouter()
 
 const navItems = [
   { id: 'sandbox', path: '/', name: '实验沙盒', title: 'nuScenes AD Benchmark Sandbox', icon: Activity },
-  { id: 'experiments', path: '/experiments', name: '实验记录', title: '实验记录与对比', icon: BarChart3 },
+  { id: 'experiments', path: '/experiments', name: '实验记录', title: '我的仿真试验与结果', icon: BarChart3 },
+  { id: 'admin', path: '/admin', name: '管理员', title: '模型与仿真试验管理', icon: Settings },
   { id: 'system', path: '/system', name: '系统状态', title: '系统状态', icon: Server }
 ]
 
 const currentModuleId = computed(() => {
   if (route.path.startsWith('/experiments')) return 'experiments'
+  if (route.path.startsWith('/admin')) return 'admin'
   if (route.path.startsWith('/system')) return 'system'
   return 'sandbox'
 })
-const currentModule = computed(() => navItems.find(m => m.id === currentModuleId.value) || navItems[0])
+
+const currentModule = computed(() => navItems.find(item => item.id === currentModuleId.value) || navItems[0])
 
 const navigateTo = (item) => {
   router.push(item.path)
@@ -35,58 +39,50 @@ const navigateTo = (item) => {
 
 <template>
   <div class="app-layout">
-    <!-- Sidebar -->
-    <aside 
-      class="sidebar glass-panel"
-      :class="{ 'collapsed': systemStore.isSidebarCollapsed }"
-    >
+    <aside class="sidebar glass-panel" :class="{ collapsed: systemStore.isSidebarCollapsed }">
       <div class="brand">
         <div class="brand-icon">
           <CarFront :size="28" color="currentColor" />
         </div>
         <div class="brand-text" v-if="!systemStore.isSidebarCollapsed">AD Sandbox</div>
       </div>
-      
+
       <nav class="nav-menu">
-        <a 
-          v-for="mod in navItems" 
-          :key="mod.id"
+        <button
+          v-for="item in navItems"
+          :key="item.id"
           class="nav-item"
-          :class="{ active: currentModuleId === mod.id }"
-          @click="navigateTo(mod)"
-          :title="mod.name"
+          :class="{ active: currentModuleId === item.id }"
+          :title="item.name"
+          @click="navigateTo(item)"
         >
-          <component :is="mod.icon" :size="20" class="nav-icon" />
-          <span class="nav-text" v-if="!systemStore.isSidebarCollapsed">{{ mod.name }}</span>
-        </a>
+          <component :is="item.icon" :size="20" class="nav-icon" />
+          <span class="nav-text" v-if="!systemStore.isSidebarCollapsed">{{ item.name }}</span>
+        </button>
       </nav>
-      
+
       <div class="sidebar-footer">
-        <div class="status-indicator" :class="{ 'collapsed': systemStore.isSidebarCollapsed }" title="System Online">
+        <div class="status-indicator" :class="{ collapsed: systemStore.isSidebarCollapsed }" title="System Online">
           <span class="pulse"></span>
           <span v-if="!systemStore.isSidebarCollapsed">System Online</span>
         </div>
       </div>
     </aside>
 
-    <!-- Main Content -->
     <main class="main-content">
       <header class="top-header">
         <div class="header-left">
-          <button class="icon-btn" @click="systemStore.toggleSidebar">
+          <button class="icon-btn" @click="systemStore.toggleSidebar" title="折叠侧边栏">
             <Menu :size="24" />
           </button>
           <h1>{{ currentModule.title }}</h1>
         </div>
-        <div class="user-profile">
-          <div class="avatar">
-            <UserCircle :size="32" color="var(--text-secondary)" />
-          </div>
+        <div class="avatar" title="当前用户">
+          <UserCircle :size="32" color="var(--text-secondary)" />
         </div>
       </header>
-      
+
       <div class="dashboard-container">
-        <!-- Dashboard Component changes via Router -->
         <router-view :key="$route.fullPath" />
       </div>
     </main>
@@ -100,7 +96,6 @@ const navigateTo = (item) => {
   overflow: hidden;
 }
 
-/* Sidebar Styling */
 .sidebar {
   width: 280px;
   margin: 16px;
@@ -108,7 +103,7 @@ const navigateTo = (item) => {
   flex-direction: column;
   padding: 24px 0;
   z-index: 10;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.25s ease;
 }
 
 .sidebar.collapsed {
@@ -126,7 +121,7 @@ const navigateTo = (item) => {
 }
 
 .sidebar.collapsed .brand {
-  padding: 0 0 32px 0;
+  padding: 0 0 32px;
   justify-content: center;
 }
 
@@ -145,10 +140,8 @@ const navigateTo = (item) => {
 .brand-text {
   font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  background: linear-gradient(90deg, #fff, #94a3b8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.3px;
+  color: var(--text-primary);
 }
 
 .nav-menu {
@@ -166,18 +159,23 @@ const navigateTo = (item) => {
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  border-radius: 12px;
+  gap: 12px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  background: transparent;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: var(--text-secondary);
   overflow: hidden;
   white-space: nowrap;
 }
 
 .sidebar.collapsed .nav-item {
   justify-content: center;
-  padding: 12px 0;
+  padding: 0;
 }
 
 .nav-item:hover {
@@ -186,24 +184,14 @@ const navigateTo = (item) => {
 }
 
 .nav-item.active {
-  background: rgba(59, 130, 246, 0.15);
   color: var(--accent-color);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .nav-icon {
-  margin-right: 12px;
-  opacity: 0.8;
   flex-shrink: 0;
-}
-
-.sidebar.collapsed .nav-icon {
-  margin-right: 0;
-}
-
-.nav-item.active .nav-icon {
-  opacity: 1;
+  opacity: 0.9;
 }
 
 .nav-text {
@@ -221,27 +209,28 @@ const navigateTo = (item) => {
 .status-indicator {
   display: flex;
   align-items: center;
-  font-size: 0.85rem;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
   color: var(--success-color);
   background: rgba(16, 185, 129, 0.1);
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  font-size: 0.85rem;
   white-space: nowrap;
   overflow: hidden;
 }
 
 .status-indicator.collapsed {
   justify-content: center;
-  padding: 8px 0;
+  padding: 0;
 }
 
 .pulse {
   width: 8px;
   height: 8px;
-  background: var(--success-color);
-  border-radius: 50%;
   margin-right: 10px;
+  border-radius: 50%;
+  background: var(--success-color);
   box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
   animation: pulse 2s infinite;
   flex-shrink: 0;
@@ -257,72 +246,75 @@ const navigateTo = (item) => {
   100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
-/* Main Content Styling */
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   padding: 16px 16px 16px 0;
   overflow: hidden;
 }
 
 .top-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 16px 32px;
+  justify-content: space-between;
+  min-height: 74px;
+  padding: 0 32px;
+  margin-bottom: 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
   background: var(--panel-bg);
   backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
-  margin-bottom: 16px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
 }
 
 .icon-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  width: 40px;
+  height: 40px;
+  border: none;
   border-radius: 8px;
-  transition: all 0.2s;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
 }
 
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .top-header h1 {
+  margin: 0;
+  color: var(--text-primary);
   font-size: 1.5rem;
   font-weight: 600;
-  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--glass-border);
-  cursor: pointer;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .dashboard-container {
   flex: 1;
   overflow-y: auto;
-  border-radius: 16px;
+  border-radius: 8px;
 }
 </style>

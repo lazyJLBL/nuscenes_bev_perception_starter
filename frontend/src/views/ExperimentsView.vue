@@ -1,19 +1,51 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import api from '../api'
-import { RefreshCw } from 'lucide-vue-next'
+import { Database, FileJson, RefreshCw } from 'lucide-vue-next'
 
 const records = ref([])
 const isLoading = ref(false)
 const errorMessage = ref('')
+const sourceMode = ref('files')
+
+const normalizeDbRun = (run) => {
+  const metrics = run.metrics_json || {}
+  const config = run.request_config_json || {}
+  return {
+    run_id: run.run_uid,
+    created_at: run.created_at,
+    status: run.status,
+    spec: {
+      preprocessing: config.preprocessing_model || run.models?.preprocessing?.model_key,
+      perception_model: config.perception_model || run.models?.perception?.model_key,
+      decision_model: config.decision_model || run.models?.decision?.model_key,
+      planning_model: config.planning_model || run.models?.planning?.model_key
+    },
+    reports: {
+      perception: { metrics: metrics.perception || {} },
+      decision: { metrics: metrics.decision || {} },
+      planning: { metrics: metrics.planning || {} }
+    },
+    scenario_name: run.scenario?.name || '未绑定场景',
+    result_summary: run.result_summary || '',
+    run_record_path: run.run_record_path
+  }
+}
 
 const fetchExperiments = async () => {
   isLoading.value = true
   errorMessage.value = ''
 
   try {
-    const response = await api.get('/experiments', { params: { limit: 12 } })
-    records.value = response.data.records || []
+    try {
+      const dbResponse = await api.get('/client/runs', { params: { user_id: 2, limit: 12 } })
+      records.value = (dbResponse.data.runs || []).map(normalizeDbRun)
+      sourceMode.value = 'mysql'
+    } catch (dbError) {
+      const response = await api.get('/experiments', { params: { limit: 12 } })
+      records.value = response.data.records || []
+      sourceMode.value = 'files'
+    }
   } catch (error) {
     console.error('Failed to fetch experiment records:', error)
     errorMessage.value = '无法读取实验记录，请确认后端已启动。'
@@ -25,6 +57,8 @@ const fetchExperiments = async () => {
 onMounted(fetchExperiments)
 
 const latestRecords = computed(() => records.value.slice(0, 12))
+const sourceIcon = computed(() => sourceMode.value === 'mysql' ? Database : FileJson)
+const sourceLabel = computed(() => sourceMode.value === 'mysql' ? 'MySQL 客户记录' : '本地 JSON 记录')
 
 const specOf = (record) => record.spec || {}
 
@@ -57,12 +91,18 @@ const runLabel = (record) => record.run_id || record.id || 'unknown-run'
     <section class="summary-band glass-panel">
       <div>
         <p class="eyebrow">Experiment Records</p>
-        <h2>最近离线实验记录</h2>
+        <h2>我的仿真试验与结果</h2>
       </div>
-      <button class="refresh-btn" :disabled="isLoading" @click="fetchExperiments">
-        <RefreshCw :size="18" :class="{ spinning: isLoading }" />
-        刷新
-      </button>
+      <div class="actions">
+        <span class="source-pill">
+          <component :is="sourceIcon" :size="16" />
+          {{ sourceLabel }}
+        </span>
+        <button class="refresh-btn" :disabled="isLoading" @click="fetchExperiments">
+          <RefreshCw :size="18" :class="{ spinning: isLoading }" />
+          刷新
+        </button>
+      </div>
     </section>
 
     <section v-if="errorMessage" class="state-panel error-state">
@@ -74,7 +114,7 @@ const runLabel = (record) => record.run_id || record.id || 'unknown-run'
     </section>
 
     <section v-else-if="latestRecords.length === 0" class="state-panel">
-      暂无实验记录。请先回到实验沙盒运行一次 nuScenes 离线实验。
+      暂无实验记录。请先回到实验沙盒运行一次 nuScenes 离线实验，或在管理员端创建仿真试验模板。
     </section>
 
     <section v-else class="records-grid">
@@ -89,6 +129,10 @@ const runLabel = (record) => record.run_id || record.id || 'unknown-run'
           </span>
         </div>
 
+        <div class="scenario-line">
+          {{ record.scenario_name || 'nuScenes 离线实验' }}
+        </div>
+
         <div class="pipeline-row">
           <span>{{ specOf(record).preprocessing || 'n/a' }}</span>
           <span>{{ specOf(record).perception_model || specOf(record).perception || 'n/a' }}</span>
@@ -98,7 +142,7 @@ const runLabel = (record) => record.run_id || record.id || 'unknown-run'
 
         <div class="metric-grid">
           <div>
-            <label>障碍</label>
+            <label>障碍物</label>
             <strong>{{ obstacleCount(record) }}</strong>
           </div>
           <div>
@@ -123,6 +167,7 @@ const runLabel = (record) => record.run_id || record.id || 'unknown-run'
           </div>
         </div>
 
+        <p v-if="record.result_summary" class="summary-text">{{ record.result_summary }}</p>
         <p v-if="record.run_record_path" class="record-path">{{ record.run_record_path }}</p>
       </article>
     </section>
@@ -142,6 +187,7 @@ const runLabel = (record) => record.run_id || record.id || 'unknown-run'
   align-items: center;
   justify-content: space-between;
   padding: 28px 32px;
+  border-radius: 8px;
 }
 
 .eyebrow {
@@ -157,16 +203,26 @@ const runLabel = (record) => record.run_id || record.id || 'unknown-run'
   font-size: 1.6rem;
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.source-pill,
 .refresh-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-height: 42px;
-  padding: 0 16px;
+  padding: 0 14px;
   border: 1px solid rgba(59, 130, 246, 0.35);
   border-radius: 8px;
   color: white;
   background: rgba(59, 130, 246, 0.18);
+}
+
+.refresh-btn {
   cursor: pointer;
 }
 
@@ -211,99 +267,109 @@ const runLabel = (record) => record.run_id || record.id || 'unknown-run'
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
 .record-head h3 {
-  margin: 0;
+  margin: 0 0 6px;
   font-size: 1rem;
+  word-break: break-word;
 }
 
-.record-head p {
-  margin: 6px 0 0;
+.record-head p,
+.record-path,
+.summary-text {
+  margin: 0;
   color: var(--text-secondary);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
 }
 
 .status-pill {
   flex: 0 0 auto;
+  padding: 6px 10px;
   border-radius: 999px;
-  padding: 4px 10px;
   color: #bbf7d0;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.28);
   font-size: 0.78rem;
 }
 
 .status-pill.failed {
   color: #fecaca;
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.16);
   border-color: rgba(239, 68, 68, 0.28);
+}
+
+.scenario-line {
+  margin-bottom: 12px;
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .pipeline-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .pipeline-row span {
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  min-height: 34px;
+  padding: 8px;
   border-radius: 8px;
-  color: var(--text-secondary);
-  background: rgba(15, 23, 42, 0.56);
+  color: #dbeafe;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.2);
   font-size: 0.8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
+  margin-bottom: 14px;
 }
 
 .metric-grid div {
-  min-height: 70px;
   padding: 12px;
+  border: 1px solid var(--glass-border);
   border-radius: 8px;
-  background: rgba(2, 6, 23, 0.38);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .metric-grid label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
 }
 
 .metric-grid strong {
-  color: var(--text-primary);
-  font-size: 1.1rem;
+  font-size: 1rem;
+}
+
+.summary-text {
+  margin-bottom: 8px;
 }
 
 .record-path {
-  margin: 16px 0 0;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
 }
 
-@media (max-width: 900px) {
-  .records-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 780px) {
+  .summary-band,
+  .actions {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
+  .records-grid,
   .pipeline-row,
   .metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 </style>

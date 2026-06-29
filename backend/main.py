@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from backend.api.routes import router as api_router
+from backend.api.product_routes import router as product_router
 import os
 
 app = FastAPI(title="AutoDrive Perception Backend")
@@ -35,6 +36,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api")
+app.include_router(product_router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn

@@ -36,6 +36,11 @@ from src.experiments.schemas import ExperimentSpec, RunRecord
 from src.utils.config import get_model_config, get_paths_config
 from src.utils.path_utils import resolve_project_path
 
+try:
+    from backend.db import try_persist_run_record
+except Exception:
+    try_persist_run_record = None
+
 router = APIRouter()
 
 GLOBAL_STATE: Dict[str, Any] = {
@@ -451,6 +456,8 @@ class ExperimentRequest(BaseModel):
 async def run_experiment(config: ExperimentRequest, request: Request):
     spec = ExperimentSpec.from_dict(config.model_dump())
     record = run_offline_experiment(spec)
+    if try_persist_run_record is not None:
+        try_persist_run_record(record)
     return _record_to_sandbox(record, request)
 
 
@@ -458,6 +465,8 @@ async def run_experiment(config: ExperimentRequest, request: Request):
 async def run_sandbox(config: ExperimentRequest, request: Request):
     spec = ExperimentSpec.from_dict(config.model_dump())
     record = run_offline_experiment(spec)
+    if try_persist_run_record is not None:
+        try_persist_run_record(record)
     return _record_to_sandbox(record, request)
 
 

@@ -28,6 +28,11 @@ const routes = [
         component: () => import('../views/SystemStatusView.vue')
       },
       {
+        path: 'admin',
+        name: 'AdminView',
+        component: () => import('../views/AdminView.vue')
+      },
+      {
         path: 'dev/modules/:moduleId?',
         name: 'ModuleView',
         component: ModuleView,
