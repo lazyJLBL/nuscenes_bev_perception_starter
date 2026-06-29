@@ -24,6 +24,7 @@ outputs/
 results/
 runs/
 logs/
+carla_runs/
 review_artifacts/
 review_artifacts.zip
 checkpoints/
@@ -64,6 +65,9 @@ build/
 # External frameworks
 mmdetection3d/
 OpenPCDet/
+CARLA_*/
+carla/
+D:/CARLA/
 
 # Cloud Sync Temporary Files
 .tmp.driveupload/
