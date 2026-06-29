@@ -21,6 +21,8 @@ onMounted(() => {
     moduleStore.fetchConfigs()
   }
   fetchBackendHealth()
+  fetchCarlaStatus()
+  fetchCarlaBootstrap()
 })
 
 // Selected pipeline models
@@ -79,6 +81,13 @@ const visualSampleSource = ref('')
 const visualSceneScore = ref(null)
 const backendHealth = ref(null)
 const isLoadingSim = ref(false)
+const carlaStatus = ref(null)
+const carlaScenarios = ref([])
+const selectedCarlaScenarioId = ref(null)
+const isStartingCarla = ref(false)
+const isRunningCarla = ref(false)
+const carlaResult = ref(null)
+const carlaError = ref('')
 
 const currentStep = ref(0)
 const isPlaying = ref(false)
@@ -132,6 +141,112 @@ const fetchBackendHealth = async () => {
   } catch (error) {
     backendHealth.value = null
     console.warn('Backend health check failed:', error)
+  }
+}
+
+const fetchCarlaStatus = async () => {
+  try {
+    const response = await api.get('/carla/status')
+    carlaStatus.value = response.data
+  } catch (error) {
+    carlaStatus.value = null
+    console.warn('CARLA status check failed:', error)
+  }
+}
+
+const fetchCarlaBootstrap = async () => {
+  try {
+    const response = await api.get('/client/bootstrap')
+    const scenarios = response.data.scenarios || []
+    carlaScenarios.value = scenarios.filter(item => item.dataset_source === 'carla' && item.status === 'active')
+    if (!selectedCarlaScenarioId.value && carlaScenarios.value.length > 0) {
+      selectedCarlaScenarioId.value = carlaScenarios.value[0].id
+    }
+  } catch (error) {
+    carlaScenarios.value = [
+      {
+        id: null,
+        name: 'Town03 Urban Traffic',
+        carla_town: 'Town03',
+        default_config_json: {
+          duration_seconds: 10,
+          weather: 'ClearNoon',
+          traffic_vehicles: 10,
+          traffic_walkers: 0,
+          spawn_point_index: 0,
+          synchronous_mode: true
+        }
+      }
+    ]
+    selectedCarlaScenarioId.value = null
+  }
+}
+
+const selectedCarlaScenario = computed(() => {
+  return carlaScenarios.value.find(item => item.id === selectedCarlaScenarioId.value) || carlaScenarios.value[0] || null
+})
+
+const selectedCarlaConfig = computed(() => selectedCarlaScenario.value?.default_config_json || {})
+
+const startCarla = async () => {
+  isStartingCarla.value = true
+  carlaError.value = ''
+  try {
+    const response = await api.post('/carla/start', { windowed: true, res_x: 1280, res_y: 720 })
+    if (!response.data.success) {
+      carlaError.value = response.data.error || 'CARLA 启动失败'
+    }
+    await fetchCarlaStatus()
+  } catch (error) {
+    carlaError.value = 'CARLA 启动请求失败，请检查后端服务。'
+  } finally {
+    isStartingCarla.value = false
+  }
+}
+
+const runCarlaSimulation = async () => {
+  const scenario = selectedCarlaScenario.value
+  const config = selectedCarlaConfig.value
+  isRunningCarla.value = true
+  carlaError.value = ''
+  carlaResult.value = null
+  try {
+    const response = await api.post('/carla/run', {
+      user_id: 2,
+      scenario_id: scenario?.id || null,
+      town: scenario?.carla_town || config.town || 'Town03',
+      duration_seconds: config.duration_seconds || 10,
+      weather: config.weather || 'ClearNoon',
+      traffic_vehicles: config.traffic_vehicles ?? 10,
+      traffic_walkers: config.traffic_walkers ?? 0,
+      ego_vehicle: config.ego_vehicle || 'vehicle.tesla.model3',
+      spawn_point_index: config.spawn_point_index || 0,
+      synchronous_mode: config.synchronous_mode !== false
+    })
+    if (!response.data.success) {
+      carlaError.value = response.data.error || 'CARLA 仿真运行失败'
+      return
+    }
+    carlaResult.value = response.data
+    timesteps.value = response.data.timesteps || []
+    stats.value = {
+      ...(response.data.stats || {}),
+      total_latency_ms: Number(response.data.metrics?.duration_seconds || 0) * 1000,
+      safety_score: response.data.metrics?.collision_count === 0 ? 100 : 60,
+      comfort_score: Math.max(0, 100 - (response.data.metrics?.collision_count || 0) * 20),
+      efficiency_score: Math.min(100, response.data.metrics?.average_speed_kmh || 0)
+    }
+    obstacles.value = []
+    sandboxWarnings.value = []
+    currentStep.value = 0
+    isPlaying.value = true
+    startPlayback()
+    await fetchCarlaStatus()
+  } catch (error) {
+    console.error('Failed to run CARLA simulation:', error)
+    carlaError.value = 'CARLA 仿真请求失败，请确认 CARLA 已启动且 Python API 可用。'
+  } finally {
+    isRunningCarla.value = false
   }
 }
 
@@ -204,6 +319,7 @@ const coordinateFrameLabel = computed(() => {
 const currentFrameLatencyBreakdown = computed(() => {
   if (!currentFrameData.value) return null
   const bd = currentFrameData.value.latency_breakdown
+  if (!bd) return null
   const total = bd.preprocessing + bd.perception + bd.decision + bd.planning
   return {
     total: total.toFixed(1),
@@ -252,6 +368,64 @@ const pathPoints = computed(() => {
 
 <template>
   <div class="sandbox-container animate-fade-in">
+    <div class="carla-card glass-panel">
+      <div class="carla-head">
+        <div>
+          <p class="carla-eyebrow">CARLA Simulation</p>
+          <h2>CARLA 可视化仿真沙盒</h2>
+          <p>选择管理员配置的 CARLA 场景，启动本地 CarlaUE4.exe，并运行一次可视窗口仿真。</p>
+        </div>
+        <div class="carla-status" :class="{ online: carlaStatus?.connected, missing: !carlaStatus?.installed }">
+          {{ carlaStatus?.connected ? 'CARLA 已连接' : carlaStatus?.installed ? 'CARLA 未连接' : 'CARLA 未安装' }}
+        </div>
+      </div>
+
+      <div class="carla-grid">
+        <label class="carla-field">
+          场景
+          <select v-model="selectedCarlaScenarioId">
+            <option
+              v-for="scenario in carlaScenarios"
+              :key="scenario.id ?? scenario.scenario_key"
+              :value="scenario.id"
+            >
+              {{ scenario.name }} / {{ scenario.carla_town || 'Town03' }}
+            </option>
+          </select>
+        </label>
+
+        <div class="carla-metrics">
+          <span>Town: {{ selectedCarlaScenario?.carla_town || 'Town03' }}</span>
+          <span>天气: {{ selectedCarlaConfig.weather || 'ClearNoon' }}</span>
+          <span>车辆: {{ selectedCarlaConfig.traffic_vehicles ?? 10 }}</span>
+          <span>行人: {{ selectedCarlaConfig.traffic_walkers ?? 0 }}</span>
+          <span>时长: {{ selectedCarlaConfig.duration_seconds || 10 }}s</span>
+        </div>
+
+        <div class="carla-actions">
+          <button class="btn btn-secondary" :disabled="isStartingCarla" @click="startCarla">
+            {{ isStartingCarla ? '正在启动...' : '启动 CARLA' }}
+          </button>
+          <button class="btn btn-primary" :disabled="isRunningCarla" @click="runCarlaSimulation">
+            {{ isRunningCarla ? '正在运行 CARLA...' : '运行 CARLA 仿真' }}
+          </button>
+          <button class="btn btn-secondary" @click="fetchCarlaStatus">刷新状态</button>
+        </div>
+      </div>
+
+      <div v-if="carlaError" class="carla-error">{{ carlaError }}</div>
+
+      <div v-if="carlaResult" class="carla-result">
+        <img v-if="carlaResult.camera_image_url" :src="carlaResult.camera_image_url" alt="CARLA camera result" />
+        <div class="carla-result-stats">
+          <div><label>Run</label><strong>{{ carlaResult.run_uid }}</strong></div>
+          <div><label>距离</label><strong>{{ carlaResult.metrics?.distance_m }} m</strong></div>
+          <div><label>碰撞</label><strong>{{ carlaResult.metrics?.collision_count }}</strong></div>
+          <div><label>平均速度</label><strong>{{ carlaResult.metrics?.average_speed_kmh }} km/h</strong></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Header Configurations -->
     <div class="header-card glass-panel">
       <div class="card-intro">
@@ -618,6 +792,154 @@ const pathPoints = computed(() => {
   flex-direction: column;
   gap: 20px;
   padding: 8px 16px 24px;
+}
+
+.carla-card {
+  padding: 24px;
+  border-radius: 8px;
+}
+
+.carla-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.carla-head h2 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+}
+
+.carla-head p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.carla-eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent-color);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.carla-status {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  border-radius: 999px;
+  color: #fef3c7;
+  background: rgba(113, 63, 18, 0.22);
+  font-size: 0.84rem;
+}
+
+.carla-status.online {
+  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(20, 83, 45, 0.22);
+}
+
+.carla-status.missing {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.carla-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(320px, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.carla-field {
+  display: grid;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.carla-field select {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.carla-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(80px, 1fr));
+  gap: 8px;
+}
+
+.carla-metrics span {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.carla-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.carla-error {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 8px;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.carla-result {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.carla-result img {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+}
+
+.carla-result-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.carla-result-stats div {
+  padding: 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.carla-result-stats label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.carla-result-stats strong {
+  overflow-wrap: anywhere;
 }
 
 /* Header Card Configurations */

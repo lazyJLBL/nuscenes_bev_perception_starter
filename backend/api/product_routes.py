@@ -21,6 +21,7 @@ from backend.db import (
     rows_to_dicts,
     session_scope,
 )
+from backend.carla_service import run_carla_simulation
 
 router = APIRouter()
 
@@ -272,6 +273,24 @@ async def create_client_run(payload: ClientRunPayload):
         scenario = session.get(SimulationScenario, payload.scenario_id) if payload.scenario_id else None
         if payload.scenario_id and scenario is None:
             raise HTTPException(status_code=404, detail="scenario not found")
+
+        if scenario is not None and scenario.dataset_source == "carla":
+            config = {
+                **(scenario.default_config_json or {}),
+                **payload.request_config_json,
+                "user_id": user.id,
+                "scenario_id": scenario.id,
+                "town": scenario.carla_town or (scenario.default_config_json or {}).get("town", "Town03"),
+            }
+            try:
+                result = run_carla_simulation(config)
+            except Exception as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+            if not result.get("success"):
+                raise HTTPException(status_code=503, detail=result.get("error", "CARLA run failed"))
+            db_run_id = result.get("db_run_id")
+            run = session.get(SimulationRun, db_run_id) if db_run_id else None
+            return {"success": True, "run": _run_to_dict(session, run) if run else result}
 
         run = SimulationRun(
             run_uid=new_run_uid("client"),

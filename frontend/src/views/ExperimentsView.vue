@@ -22,6 +22,7 @@ const normalizeDbRun = (run) => {
       planning_model: config.planning_model || run.models?.planning?.model_key
     },
     reports: {
+      carla: { metrics: metrics.carla || {} },
       perception: { metrics: metrics.perception || {} },
       decision: { metrics: metrics.decision || {} },
       planning: { metrics: metrics.planning || {} }
@@ -77,11 +78,15 @@ const fixed = (value, digits = 1, unit = '') => {
 }
 
 const obstacleCount = (record) => {
+  const carla = metricsOf(record, 'carla')
+  if (carla.collision_count !== undefined) return carla.collision_count
   const planning = metricsOf(record, 'planning')
   if (planning.visual_obstacle_count !== undefined) return planning.visual_obstacle_count
   if (Array.isArray(planning.visual_obstacles)) return planning.visual_obstacles.length
   return 'n/a'
 }
+
+const carlaMetric = (record, key) => metricsOf(record, 'carla')[key]
 
 const runLabel = (record) => record.run_id || record.id || 'unknown-run'
 </script>
@@ -142,20 +147,20 @@ const runLabel = (record) => record.run_id || record.id || 'unknown-run'
 
         <div class="metric-grid">
           <div>
-            <label>障碍物</label>
+            <label>{{ carlaMetric(record, 'collision_count') !== undefined ? '碰撞' : '障碍物' }}</label>
             <strong>{{ obstacleCount(record) }}</strong>
           </div>
           <div>
-            <label>Collision</label>
-            <strong>{{ percent(metricsOf(record, 'planning').collision_rate) }}</strong>
+            <label>{{ carlaMetric(record, 'distance_m') !== undefined ? 'Distance' : 'Collision' }}</label>
+            <strong>{{ carlaMetric(record, 'distance_m') !== undefined ? fixed(carlaMetric(record, 'distance_m'), 1, ' m') : percent(metricsOf(record, 'planning').collision_rate) }}</strong>
           </div>
           <div>
-            <label>ADE</label>
-            <strong>{{ fixed(metricsOf(record, 'planning').ade, 2, ' m') }}</strong>
+            <label>{{ carlaMetric(record, 'average_speed_kmh') !== undefined ? 'Avg Speed' : 'ADE' }}</label>
+            <strong>{{ carlaMetric(record, 'average_speed_kmh') !== undefined ? fixed(carlaMetric(record, 'average_speed_kmh'), 1, ' km/h') : fixed(metricsOf(record, 'planning').ade, 2, ' m') }}</strong>
           </div>
           <div>
-            <label>FDE</label>
-            <strong>{{ fixed(metricsOf(record, 'planning').fde, 2, ' m') }}</strong>
+            <label>{{ carlaMetric(record, 'duration_seconds') !== undefined ? 'Duration' : 'FDE' }}</label>
+            <strong>{{ carlaMetric(record, 'duration_seconds') !== undefined ? fixed(carlaMetric(record, 'duration_seconds'), 1, ' s') : fixed(metricsOf(record, 'planning').fde, 2, ' m') }}</strong>
           </div>
           <div>
             <label>Latency</label>
