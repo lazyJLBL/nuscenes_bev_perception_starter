@@ -34,7 +34,7 @@ const scenarioForm = reactive({
   carla_town: 'Town03',
   status: 'active',
   description: '',
-  default_config_json: '{\n  "duration_seconds": 15,\n  "weather": "ClearNoon",\n  "traffic_vehicles": 20,\n  "traffic_walkers": 5,\n  "spawn_point_index": 0,\n  "synchronous_mode": true\n}'
+  default_config_json: '{\n  "duration_seconds": 15,\n  "weather": "ClearNoon",\n  "traffic_vehicles": 20,\n  "traffic_walkers": 5,\n  "spawn_point_index": 0,\n  "synchronous_mode": false\n}'
 })
 
 const selectedModel = computed(() => models.value.find(item => item.id === selectedModelId.value) || null)
@@ -160,7 +160,7 @@ const resetScenarioForm = () => {
     carla_town: 'Town03',
     status: 'active',
     description: '',
-    default_config_json: '{\n  "duration_seconds": 15,\n  "weather": "ClearNoon",\n  "traffic_vehicles": 20,\n  "traffic_walkers": 5,\n  "spawn_point_index": 0,\n  "synchronous_mode": true\n}'
+    default_config_json: '{\n  "duration_seconds": 15,\n  "weather": "ClearNoon",\n  "traffic_vehicles": 20,\n  "traffic_walkers": 5,\n  "spawn_point_index": 0,\n  "synchronous_mode": false\n}'
   })
 }
 

@@ -5,6 +5,7 @@ import json
 import os
 import queue
 import random
+import socket
 import subprocess
 import sys
 import time
@@ -79,14 +80,108 @@ def find_python_api(home: Optional[Path] = None) -> Optional[str]:
 
 def import_carla():
     api_path = find_python_api()
-    if api_path and api_path not in sys.path:
+    if api_path and _python_api_path_is_compatible(api_path) and api_path not in sys.path:
         sys.path.insert(0, api_path)
+    elif api_path and not _python_api_path_is_compatible(api_path) and not os.environ.get("CARLA_ALLOW_PIP_CLIENT"):
+        raise CarlaUnavailable(
+            "Bundled CARLA Python API is not compatible with this Python. "
+            "Set CARLA_BRIDGE_PYTHON to a Python 3.7 executable."
+        )
     try:
         import carla  # type: ignore
 
         return carla
     except Exception as exc:
         raise CarlaUnavailable(f"CARLA Python API is unavailable: {exc}") from exc
+
+
+def _python_api_path_is_compatible(api_path: str) -> bool:
+    version = f"py{sys.version_info.major}.{sys.version_info.minor}"
+    cp_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
+    path = api_path.lower()
+    return version in path or cp_version in path
+
+
+def bridge_python() -> Optional[str]:
+    explicit = os.environ.get("CARLA_BRIDGE_PYTHON")
+    if explicit and Path(explicit).exists():
+        return explicit
+    candidates = [
+        Path(r"D:\Anaconda3\envs\carla0915\python.exe"),
+        Path(r"D:\anaconda-\envs\carla0915\python.exe"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+def _is_port_open(host: str, port: int, timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _running_carla_pids() -> list[int]:
+    if os.name != "nt":
+        return []
+    command = (
+        "Get-Process -Name CarlaUE4,CarlaUE4-Win64-Shipping,CrashReportClient "
+        "-ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id"
+    )
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-Command", command],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    pids: list[int] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if line.isdigit():
+            pids.append(int(line))
+    return pids
+
+
+def run_bridge(command: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    python = bridge_python()
+    if not python:
+        raise CarlaUnavailable("CARLA bridge Python was not found. Run scripts/setup_carla_python_env.ps1 first.")
+    cfg = get_config()
+    runner = PROJECT_ROOT / "scripts" / "carla_bridge_runner.py"
+    args = [
+        python,
+        "-X",
+        "faulthandler",
+        str(runner),
+        command,
+        "--carla-home",
+        str(cfg.home),
+        "--host",
+        cfg.host,
+        "--port",
+        str(cfg.port),
+        "--project-root",
+        str(PROJECT_ROOT),
+        "--payload",
+        json.dumps(payload or {}),
+    ]
+    env = os.environ.copy()
+    env.setdefault("PYTHONFAULTHANDLER", "1")
+    result = subprocess.run(args, capture_output=True, text=True, timeout=600, env=env)
+    stdout = (result.stdout or "").strip().splitlines()
+    json_lines = [line for line in stdout if line.strip().startswith("{") and line.strip().endswith("}")]
+    last_line = json_lines[-1] if json_lines else "{}"
+    try:
+        data = json.loads(last_line)
+    except json.JSONDecodeError as exc:
+        raise CarlaUnavailable(f"CARLA bridge returned invalid output: {result.stdout} {result.stderr}") from exc
+    if result.returncode != 0 or not data.get("success", False):
+        detail = data.get("error") or result.stderr or result.stdout or "CARLA bridge failed"
+        raise CarlaUnavailable(detail)
+    return data
 
 
 def carla_status() -> Dict[str, Any]:
@@ -110,6 +205,14 @@ def carla_status() -> Dict[str, Any]:
             api_error = str(exc)
     except Exception as exc:
         api_error = str(exc)
+        try:
+            bridge = run_bridge("status")
+            api_available = True
+            connected = True
+            current_map = bridge.get("current_map")
+            api_error = ""
+        except Exception as bridge_exc:
+            api_error = f"{api_error}; bridge: {bridge_exc}"
 
     return {
         "success": True,
@@ -118,6 +221,7 @@ def carla_status() -> Dict[str, Any]:
         "installed": exe is not None,
         "python_api_path": api_path,
         "python_api_available": api_available,
+        "bridge_python": bridge_python(),
         "host": cfg.host,
         "port": cfg.port,
         "process_running": _carla_process is not None and _carla_process.poll() is None,
@@ -131,6 +235,10 @@ def start_carla(windowed: bool = True, res_x: int = 1280, res_y: int = 720) -> D
     global _carla_process
     if _carla_process is not None and _carla_process.poll() is None:
         return {"success": True, "already_running": True, "pid": _carla_process.pid}
+    cfg = get_config()
+    pids = _running_carla_pids()
+    if pids and _is_port_open(cfg.host, cfg.port):
+        return {"success": True, "already_running": True, "pid": pids[0], "pids": pids}
 
     exe = find_carla_executable()
     if exe is None:
@@ -145,6 +253,7 @@ def start_carla(windowed: bool = True, res_x: int = 1280, res_y: int = 720) -> D
 
 def stop_carla() -> Dict[str, Any]:
     global _carla_process
+    stopped_pids: list[int] = []
     if _carla_process is not None and _carla_process.poll() is None:
         pid = _carla_process.pid
         _carla_process.terminate()
@@ -152,10 +261,21 @@ def stop_carla() -> Dict[str, Any]:
             _carla_process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             _carla_process.kill()
-        _carla_process = None
-        return {"success": True, "stopped": True, "pid": pid}
+        stopped_pids.append(pid)
     _carla_process = None
-    return {"success": True, "stopped": False}
+    external_pids = _running_carla_pids()
+    for pid in external_pids:
+        try:
+            subprocess.run(
+                ["powershell", "-NoProfile", "-Command", f"Stop-Process -Id {pid} -Force"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            stopped_pids.append(pid)
+        except Exception:
+            pass
+    return {"success": True, "stopped": bool(stopped_pids), "pids": stopped_pids}
 
 
 def get_client():
@@ -172,18 +292,38 @@ def available_maps() -> Dict[str, Any]:
         maps = sorted([name.split("/")[-1] for name in client.get_available_maps()])
         return {"success": True, "connected": True, "maps": maps}
     except Exception as exc:
-        return {"success": True, "connected": False, "maps": DEFAULT_MAPS, "error": str(exc)}
+        try:
+            bridge = run_bridge("maps")
+            return {"success": True, "connected": True, "maps": bridge.get("maps", DEFAULT_MAPS)}
+        except Exception as bridge_exc:
+            return {"success": True, "connected": False, "maps": DEFAULT_MAPS, "error": f"{exc}; bridge: {bridge_exc}"}
 
 
 def run_carla_simulation(payload: Dict[str, Any]) -> Dict[str, Any]:
-    carla, client = get_client()
+    try:
+        carla, client = get_client()
+    except Exception:
+        bridge_result = run_bridge("run", payload)
+        db_run_id = _persist_carla_run(
+            run_uid=bridge_result["run_uid"],
+            user_id=int(payload.get("user_id", 2)),
+            scenario_id=int(payload["scenario_id"]) if payload.get("scenario_id") else None,
+            request_config=payload,
+            metrics=bridge_result["metrics"],
+            trajectory_path=bridge_result["trajectory_path"],
+            image_path=bridge_result.get("camera_image_path") or "",
+        )
+        bridge_result["db_run_id"] = db_run_id
+        return bridge_result
+
     town = payload.get("town") or payload.get("carla_town") or "Town03"
     duration_seconds = float(payload.get("duration_seconds", 10.0))
     traffic_vehicles = int(payload.get("traffic_vehicles", 10))
     traffic_walkers = int(payload.get("traffic_walkers", 0))
     weather = payload.get("weather", "ClearNoon")
     spawn_point_index = int(payload.get("spawn_point_index", 0))
-    synchronous_mode = bool(payload.get("synchronous_mode", True))
+    requested_synchronous_mode = bool(payload.get("synchronous_mode", False))
+    synchronous_mode = requested_synchronous_mode and os.environ.get("CARLA_ENABLE_SYNCHRONOUS") == "1"
     user_id = int(payload.get("user_id", 2))
     scenario_id = payload.get("scenario_id")
 
@@ -266,6 +406,8 @@ def run_carla_simulation(payload: Dict[str, Any]) -> Dict[str, Any]:
 
         _save_latest_image(image_queue, image_path)
         metrics = _metrics_from_frames(frames, distance_m, collision_count, duration_seconds)
+        metrics["requested_synchronous_mode"] = requested_synchronous_mode
+        metrics["synchronous_mode_used"] = synchronous_mode
         trajectory_path.write_text(json.dumps({"run_uid": run_uid, "town": town, "frames": frames}, indent=2), encoding="utf-8")
         db_run_id = _persist_carla_run(
             run_uid=run_uid,
@@ -293,11 +435,24 @@ def run_carla_simulation(payload: Dict[str, Any]) -> Dict[str, Any]:
             },
         }
     finally:
-        for actor in actors:
+        for actor in reversed(actors):
             try:
-                actor.destroy()
+                if hasattr(actor, "is_listening") and actor.is_listening:
+                    actor.stop()
             except Exception:
                 pass
+        try:
+            world.wait_for_tick()
+        except Exception:
+            time.sleep(0.2)
+        try:
+            client.apply_batch([carla.command.DestroyActor(actor) for actor in reversed(actors)])
+        except Exception:
+            for actor in reversed(actors):
+                try:
+                    actor.destroy()
+                except Exception:
+                    pass
         if synchronous_mode:
             try:
                 world.apply_settings(original_settings)
@@ -426,7 +581,7 @@ def _persist_carla_run(
                 uri=trajectory_path,
                 mime_type="application/json",
             ))
-            if Path(image_path).exists():
+            if image_path and Path(image_path).exists():
                 session.add(SimulationRunArtifact(
                     run_id=run.id,
                     artifact_type="image",

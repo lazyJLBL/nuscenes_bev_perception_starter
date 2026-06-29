@@ -174,7 +174,7 @@ const fetchCarlaBootstrap = async () => {
           traffic_vehicles: 10,
           traffic_walkers: 0,
           spawn_point_index: 0,
-          synchronous_mode: true
+          synchronous_mode: false
         }
       }
     ]
@@ -221,7 +221,7 @@ const runCarlaSimulation = async () => {
       traffic_walkers: config.traffic_walkers ?? 0,
       ego_vehicle: config.ego_vehicle || 'vehicle.tesla.model3',
       spawn_point_index: config.spawn_point_index || 0,
-      synchronous_mode: config.synchronous_mode !== false
+      synchronous_mode: config.synchronous_mode === true
     })
     if (!response.data.success) {
       carlaError.value = response.data.error || 'CARLA 仿真运行失败'

@@ -71,7 +71,8 @@ def _gpu_info() -> list[Dict[str, Any]]:
 
 
 def _try_import_carla(api_path: Optional[str]) -> Dict[str, Any]:
-    if api_path:
+    compatible = _python_api_path_is_compatible(api_path) if api_path else False
+    if api_path and compatible:
         sys.path.insert(0, api_path)
     try:
         import carla  # type: ignore
@@ -79,14 +80,80 @@ def _try_import_carla(api_path: Optional[str]) -> Dict[str, Any]:
         return {
             "available": True,
             "module": getattr(carla, "__file__", "unknown"),
+            "package_version": getattr(carla, "__version__", None),
             "api_path": api_path,
+            "api_path_compatible": compatible,
         }
     except Exception as exc:
         return {
             "available": False,
             "api_path": api_path,
+            "api_path_compatible": compatible,
             "error": str(exc),
         }
+
+
+def _bridge_python() -> Optional[str]:
+    explicit = os.environ.get("CARLA_BRIDGE_PYTHON")
+    if explicit and Path(explicit).exists():
+        return explicit
+    for candidate in [
+        Path(r"D:\Anaconda3\envs\carla0915\python.exe"),
+        Path(r"D:\anaconda-\envs\carla0915\python.exe"),
+    ]:
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+def _bridge_status(carla_home: Path, host: str, port: int) -> Dict[str, Any]:
+    python = _bridge_python()
+    if not python:
+        return {"available": False, "error": "CARLA_BRIDGE_PYTHON was not found"}
+    runner = Path(__file__).resolve().with_name("carla_bridge_runner.py")
+    result = subprocess.run(
+        [
+            python,
+            "-X",
+            "faulthandler",
+            str(runner),
+            "status",
+            "--carla-home",
+            str(carla_home),
+            "--host",
+            host,
+            "--port",
+            str(port),
+            "--project-root",
+            str(Path(__file__).resolve().parents[1]),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    json_lines = [
+        line for line in result.stdout.splitlines()
+        if line.strip().startswith("{") and line.strip().endswith("}")
+    ]
+    if result.returncode == 0 and json_lines:
+        data = json.loads(json_lines[-1])
+        data["available"] = True
+        data["python"] = python
+        return data
+    return {
+        "available": False,
+        "python": python,
+        "error": result.stderr.strip() or result.stdout.strip() or "Bridge status failed",
+    }
+
+
+def _python_api_path_is_compatible(api_path: Optional[str]) -> bool:
+    if not api_path:
+        return False
+    version = f"py{sys.version_info.major}.{sys.version_info.minor}"
+    cp_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
+    path = api_path.lower()
+    return version in path or cp_version in path
 
 
 def check_environment(carla_home: str, host: str, port: int) -> Dict[str, Any]:
@@ -112,6 +179,8 @@ def check_environment(carla_home: str, host: str, port: int) -> Dict[str, Any]:
         },
         "gpu": _gpu_info(),
         "python_api": _try_import_carla(api_path),
+        "bridge_python": _bridge_python(),
+        "bridge_status": _bridge_status(home, host, port) if _is_port_open(host, port) else {"available": False, "error": "CARLA server is not listening"},
     }
 
 
@@ -126,7 +195,8 @@ def main() -> int:
     print(json.dumps(report, indent=2, ensure_ascii=False))
     if not report["carla_executable_exists"]:
         return 2
-    if not report["python_api"]["available"]:
+    api = report["python_api"]
+    if (not api["available"] or not api["api_path_compatible"]) and not report["bridge_python"]:
         return 3
     return 0
 

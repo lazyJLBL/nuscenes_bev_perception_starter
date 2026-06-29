@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import uuid
@@ -230,15 +230,15 @@ def ensure_schema_upgrades() -> None:
 
 
 def seed_initial_data(session: Session) -> None:
-    admin = _get_or_create_user(session, "admin", "管理员", "admin")
-    _get_or_create_user(session, "client_demo", "演示客户", "client")
+    admin = _get_or_create_user(session, "admin", "Admin", "admin")
+    _get_or_create_user(session, "client_demo", "Demo Client", "client")
     _seed_registry_models(session, admin.id)
     _get_or_create_scenario(
         session,
         scenario_key="nuscenes_mini_offline",
-        name="nuScenes mini 离线仿真",
+        name="nuScenes mini offline simulation",
         dataset_source="nuscenes",
-        description="使用本地 nuScenes mini 数据和现有感知/决策/规划链路生成一次离线仿真结果。",
+        description="Use the local nuScenes mini data and existing perception/decision/planning chain as an offline fallback simulation.",
         created_by_id=admin.id,
         default_config_json={"split": "mini_val", "max_samples": 8},
     )
@@ -290,7 +290,7 @@ def _seed_carla_scenarios(session: Session, created_by_id: int) -> None:
                 "traffic_walkers": 0,
                 "ego_vehicle": "vehicle.tesla.model3",
                 "spawn_point_index": 0,
-                "synchronous_mode": True,
+                "synchronous_mode": False,
             },
         },
         {
@@ -305,7 +305,7 @@ def _seed_carla_scenarios(session: Session, created_by_id: int) -> None:
                 "traffic_walkers": 5,
                 "ego_vehicle": "vehicle.tesla.model3",
                 "spawn_point_index": 1,
-                "synchronous_mode": True,
+                "synchronous_mode": False,
             },
         },
         {
@@ -320,7 +320,7 @@ def _seed_carla_scenarios(session: Session, created_by_id: int) -> None:
                 "traffic_walkers": 10,
                 "ego_vehicle": "vehicle.tesla.model3",
                 "spawn_point_index": 3,
-                "synchronous_mode": True,
+                "synchronous_mode": False,
             },
         },
         {
@@ -335,7 +335,7 @@ def _seed_carla_scenarios(session: Session, created_by_id: int) -> None:
                 "traffic_walkers": 15,
                 "ego_vehicle": "vehicle.tesla.model3",
                 "spawn_point_index": 0,
-                "synchronous_mode": True,
+                "synchronous_mode": False,
             },
         },
     ]

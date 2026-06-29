@@ -34,7 +34,7 @@ class CarlaRunRequest(BaseModel):
     traffic_walkers: int = Field(0, ge=0, le=100)
     ego_vehicle: str = "vehicle.tesla.model3"
     spawn_point_index: int = Field(0, ge=0)
-    synchronous_mode: bool = True
+    synchronous_mode: bool = False
 
 
 def _error(exc: Exception) -> Dict[str, Any]:

@@ -49,6 +49,7 @@ Artifacts
 - MySQL 8.0
 - PowerShell
 - CARLA 0.9.15 Windows package
+- Python 3.7 bridge environment for CARLA 0.9.15 Python API
 - At least 55GB free disk space if Additional Maps are installed
 - NVIDIA GPU recommended
 
@@ -73,6 +74,13 @@ CARLA:
 $env:CARLA_HOME="D:\CARLA\CARLA_0.9.15"
 $env:CARLA_HOST="127.0.0.1"
 $env:CARLA_PORT="2000"
+$env:CARLA_BRIDGE_PYTHON="D:\Anaconda3\envs\carla0915\python.exe"
+```
+
+CARLA 0.9.15 runs asynchronously by default on this Windows setup. To explicitly test synchronous ticking, set:
+
+```powershell
+$env:CARLA_ENABLE_SYNCHRONOUS="1"
 ```
 
 Do not commit real passwords or local `.env` files.
@@ -116,6 +124,14 @@ Check the installation:
 python scripts/check_carla_environment.py
 ```
 
+Create the CARLA 0.9.15 Python bridge environment:
+
+```powershell
+.\scripts\setup_carla_python_env.ps1
+```
+
+CARLA 0.9.15 ships a Python 3.7 API. Do not use the `carla==0.9.16` Python package with the 0.9.15 simulator; it can connect with warnings and then crash on sensor data. The backend calls `scripts/carla_bridge_runner.py` through `CARLA_BRIDGE_PYTHON` so the simulator and client API stay version-matched. The bridge stops sensors before destroying actors and uses CARLA batch destroy commands to avoid shutdown crashes after screenshot capture.
+
 ## Initialize Database
 
 Create database:
@@ -150,6 +166,7 @@ Backend:
 ```powershell
 $env:DATABASE_URL="mysql+pymysql://root:0000@localhost:3306/nuscenes_bev_platform?charset=utf8mb4"
 $env:CARLA_HOME="D:\CARLA\CARLA_0.9.15"
+$env:CARLA_BRIDGE_PYTHON="D:\Anaconda3\envs\carla0915\python.exe"
 python -m backend.main
 ```
 
@@ -200,11 +217,11 @@ If CARLA is not installed, the page shows a readable error and the nuScenes offl
   "traffic_walkers": 5,
   "ego_vehicle": "vehicle.tesla.model3",
   "spawn_point_index": 0,
-  "synchronous_mode": true
+  "synchronous_mode": false
 }
 ```
 
-Use `dataset_source=carla` and `carla_town=Town03` or another installed map.
+Use `dataset_source=carla` and `carla_town=Town03` or another installed map. `synchronous_mode=false` is the stable default for the Windows 0.9.15 bridge; set `CARLA_ENABLE_SYNCHRONOUS=1` before backend startup only when you want to test synchronous ticking explicitly.
 
 ## API Reference
 
@@ -252,6 +269,7 @@ Run:
 python -m pytest -q
 npm --prefix frontend run build
 python scripts/check_carla_environment.py
+.\scripts\setup_carla_python_env.ps1
 ```
 
 CARLA smoke test after installation:
@@ -265,7 +283,7 @@ Invoke-RestMethod -Method Post `
 Invoke-RestMethod -Method Post `
   -Uri http://127.0.0.1:8010/api/carla/run `
   -ContentType "application/json" `
-  -Body '{"town":"Town03","duration_seconds":10,"traffic_vehicles":10,"traffic_walkers":0}'
+  -Body '{"town":"Town03","duration_seconds":10,"traffic_vehicles":3,"traffic_walkers":0,"synchronous_mode":false}'
 ```
 
 Expected artifacts:
@@ -309,6 +327,6 @@ Development-machine verification:
 - `python -m pytest -q`: passed
 - `npm --prefix frontend run build`: passed
 - MySQL schema upgraded and CARLA seed scenarios created
-- CARLA APIs return clear errors when CARLA is not installed
-
-Full visual CARLA run requires completing the large local CARLA download first.
+- CARLA 0.9.15 base package installed at `D:\CARLA\CARLA_0.9.15`
+- Python 3.7 bridge environment created at `D:\Anaconda3\envs\carla0915\python.exe`
+- CARLA bridge smoke test passed on `Town03` for 10 seconds with RGB screenshot and trajectory output
