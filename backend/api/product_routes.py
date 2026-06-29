@@ -61,8 +61,8 @@ class ScenarioPayload(BaseModel):
     scenario_key: str = Field(..., min_length=2, max_length=96)
     name: str = Field(..., min_length=1, max_length=160)
     description: str = ""
-    dataset_source: str = Field("nuscenes", pattern="^(nuscenes|unity|mixed)$")
-    unity_scene_name: Optional[str] = None
+    dataset_source: str = Field("carla", pattern="^(nuscenes|carla|mixed)$")
+    carla_town: Optional[str] = None
     status: str = Field("active", pattern="^(active|draft|disabled)$")
     default_config_json: Dict[str, Any] = Field(default_factory=dict)
     created_by_id: Optional[int] = None
@@ -71,8 +71,8 @@ class ScenarioPayload(BaseModel):
 class ScenarioPatchPayload(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    dataset_source: Optional[str] = Field(None, pattern="^(nuscenes|unity|mixed)$")
-    unity_scene_name: Optional[str] = None
+    dataset_source: Optional[str] = Field(None, pattern="^(nuscenes|carla|mixed)$")
+    carla_town: Optional[str] = None
     status: Optional[str] = Field(None, pattern="^(active|draft|disabled)$")
     default_config_json: Optional[Dict[str, Any]] = None
 
@@ -289,9 +289,9 @@ async def create_client_run(payload: ClientRunPayload):
                 "perception_model": payload.perception_model_key,
                 "decision_model": payload.decision_model_key,
                 "planning_model": payload.planning_model_key,
-                "unity_integration": "reserved",
+                "carla_integration": "queued_manual",
             },
-            result_summary="Queued. Unity execution is reserved for the later integration phase.",
+            result_summary="Queued. CARLA execution is available through /api/carla/run and the client sandbox.",
         )
         session.add(run)
         session.flush()

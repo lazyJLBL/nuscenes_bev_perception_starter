@@ -14,6 +14,8 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    inspect,
+    text,
     select,
 )
 from sqlalchemy.dialects.mysql import JSON
@@ -101,6 +103,7 @@ class SimulationScenario(Base):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     dataset_source: Mapped[str] = mapped_column(String(32), nullable=False, default="nuscenes")
+    carla_town: Mapped[Optional[str]] = mapped_column(String(64))
     unity_scene_name: Mapped[Optional[str]] = mapped_column(String(160))
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="active")
     default_config_json: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
@@ -209,9 +212,21 @@ def session_scope():
 
 def create_schema(seed: bool = True) -> None:
     Base.metadata.create_all(bind=get_engine())
+    ensure_schema_upgrades()
     if seed:
         with session_scope() as session:
             seed_initial_data(session)
+
+
+def ensure_schema_upgrades() -> None:
+    engine = get_engine()
+    inspector = inspect(engine)
+    if "simulation_scenarios" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("simulation_scenarios")}
+    if "carla_town" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE simulation_scenarios ADD COLUMN carla_town VARCHAR(64) NULL"))
 
 
 def seed_initial_data(session: Session) -> None:
@@ -227,17 +242,8 @@ def seed_initial_data(session: Session) -> None:
         created_by_id=admin.id,
         default_config_json={"split": "mini_val", "max_samples": 8},
     )
-    _get_or_create_scenario(
-        session,
-        scenario_key="unity_reserved_template",
-        name="Unity 仿真占位模板",
-        dataset_source="unity",
-        description="为后续 Unity 场景接入保留的试验模板；当前只维护配置，不触发 Unity。",
-        created_by_id=admin.id,
-        unity_scene_name="ReservedUnityScene",
-        status="draft",
-        default_config_json={"weather": "clear", "traffic_density": "medium"},
-    )
+    _disable_legacy_unity_scenarios(session)
+    _seed_carla_scenarios(session, admin.id)
 
 
 def _get_or_create_user(session: Session, username: str, display_name: str, role: str) -> AppUser:
@@ -253,11 +259,94 @@ def _get_or_create_user(session: Session, username: str, display_name: str, role
 def _get_or_create_scenario(session: Session, **values: Any) -> SimulationScenario:
     scenario = session.scalar(select(SimulationScenario).where(SimulationScenario.scenario_key == values["scenario_key"]))
     if scenario:
+        for key, value in values.items():
+            if key in {"name", "description", "dataset_source", "carla_town", "status", "default_config_json"}:
+                setattr(scenario, key, value)
         return scenario
     scenario = SimulationScenario(**values)
     session.add(scenario)
     session.flush()
     return scenario
+
+
+def _disable_legacy_unity_scenarios(session: Session) -> None:
+    rows = session.scalars(select(SimulationScenario).where(SimulationScenario.dataset_source == "unity")).all()
+    for row in rows:
+        row.status = "disabled"
+        row.description = f"{row.description}\nLegacy Unity placeholder disabled after CARLA migration.".strip()
+
+
+def _seed_carla_scenarios(session: Session, created_by_id: int) -> None:
+    scenarios = [
+        {
+            "scenario_key": "carla_town01_basic_drive",
+            "name": "Town01 Basic Drive",
+            "carla_town": "Town01",
+            "description": "Simple CARLA drive with light traffic for smoke testing.",
+            "default_config_json": {
+                "duration_seconds": 10,
+                "weather": "ClearNoon",
+                "traffic_vehicles": 8,
+                "traffic_walkers": 0,
+                "ego_vehicle": "vehicle.tesla.model3",
+                "spawn_point_index": 0,
+                "synchronous_mode": True,
+            },
+        },
+        {
+            "scenario_key": "carla_town03_urban_traffic",
+            "name": "Town03 Urban Traffic",
+            "carla_town": "Town03",
+            "description": "Urban CARLA scenario with moderate traffic for client sandbox runs.",
+            "default_config_json": {
+                "duration_seconds": 15,
+                "weather": "CloudyNoon",
+                "traffic_vehicles": 20,
+                "traffic_walkers": 5,
+                "ego_vehicle": "vehicle.tesla.model3",
+                "spawn_point_index": 1,
+                "synchronous_mode": True,
+            },
+        },
+        {
+            "scenario_key": "carla_town05_junction_stress",
+            "name": "Town05 Junction Stress",
+            "carla_town": "Town05",
+            "description": "Junction-heavy CARLA run for collision and comfort checks.",
+            "default_config_json": {
+                "duration_seconds": 20,
+                "weather": "WetNoon",
+                "traffic_vehicles": 30,
+                "traffic_walkers": 10,
+                "ego_vehicle": "vehicle.tesla.model3",
+                "spawn_point_index": 3,
+                "synchronous_mode": True,
+            },
+        },
+        {
+            "scenario_key": "carla_town10hd_dense_city",
+            "name": "Town10HD Dense City",
+            "carla_town": "Town10HD",
+            "description": "Dense HD map CARLA scenario for richer visual validation.",
+            "default_config_json": {
+                "duration_seconds": 20,
+                "weather": "SoftRainNoon",
+                "traffic_vehicles": 40,
+                "traffic_walkers": 15,
+                "ego_vehicle": "vehicle.tesla.model3",
+                "spawn_point_index": 0,
+                "synchronous_mode": True,
+            },
+        },
+    ]
+    for values in scenarios:
+        _get_or_create_scenario(
+            session,
+            dataset_source="carla",
+            status="active",
+            created_by_id=created_by_id,
+            **values,
+        )
 
 
 def _seed_registry_models(session: Session, created_by_id: int) -> None:

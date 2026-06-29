@@ -1,34 +1,43 @@
 # CARLA BEV Perception Sandbox Platform
 
-Current version: **Batch 3: CARLA backend simulation runner**.
+Current version: **Batch 4: CARLA multi-scenario admin management**.
 
-The platform now has a FastAPI CARLA service layer. It can inspect a local CARLA 0.9.15 installation, start/stop the simulator, list maps, run a basic visual simulation, export trajectory and camera artifacts, and persist CARLA run metadata to MySQL.
+The platform now uses CARLA scenario language in the database and admin console. Admin users can manage CARLA Town scenarios with weather, traffic, duration, spawn point, and synchronous-mode settings. The backend CARLA runner from Batch 3 remains available through `/api/carla/*`.
 
 ## Current Capabilities
 
-- MySQL-backed platform data:
+- MySQL-backed platform:
   - users,
   - model catalog,
-  - simulation scenarios,
+  - CARLA/nuScenes scenario templates,
   - simulation runs,
   - run artifacts.
-- Vue frontend:
-  - client sandbox,
-  - client experiment history,
-  - admin model/scenario console,
+- Admin console:
+  - create/edit models,
+  - create/edit CARLA scenarios,
+  - configure Town, weather, traffic, walkers, duration, spawn point, sync mode.
+- Client views:
+  - sandbox page,
+  - experiment history,
   - system status.
-- Existing nuScenes offline workflow remains available.
-- CARLA 0.9.15 installer and environment checker.
-- CARLA backend API:
-  - status,
-  - start,
-  - stop,
-  - maps,
-  - run.
-- CARLA run outputs:
-  - `outputs/carla/<run_uid>/trajectory.json`,
-  - `backend/static/carla/<run_uid>/camera.jpg`,
-  - MySQL `simulation_runs` and `simulation_run_artifacts` records when `DATABASE_URL` is configured.
+- CARLA tools:
+  - installer,
+  - environment checker,
+  - FastAPI runtime service.
+- Existing nuScenes offline workflow remains available as fallback.
+
+## CARLA Scenario Defaults
+
+Database seed data creates four active CARLA scenarios:
+
+| Scenario | Town | Purpose |
+|---|---|---|
+| Town01 Basic Drive | `Town01` | simple smoke test |
+| Town03 Urban Traffic | `Town03` | moderate client demo |
+| Town05 Junction Stress | `Town05` | junction-heavy checks |
+| Town10HD Dense City | `Town10HD` | richer visual validation |
+
+Legacy Unity placeholder scenarios are marked `disabled`. They are not deleted, so old records remain inspectable.
 
 ## Requirements
 
@@ -47,7 +56,7 @@ pip install -r requirements.txt
 npm install --prefix frontend
 ```
 
-## Configure Environment
+## Environment
 
 MySQL:
 
@@ -63,9 +72,19 @@ $env:CARLA_HOST="127.0.0.1"
 $env:CARLA_PORT="2000"
 ```
 
-Do not commit real passwords or local `.env` files.
+Initialize or upgrade the database schema:
 
-## Install CARLA 0.9.15
+```powershell
+python - <<'PY'
+from backend.db import create_schema
+create_schema(seed=True)
+print("database ready")
+PY
+```
+
+The schema upgrade adds `simulation_scenarios.carla_town` when needed and seeds CARLA scenarios.
+
+## Install CARLA
 
 Dry run:
 
@@ -85,33 +104,13 @@ Install base simulator and Additional Maps:
 .\scripts\install_carla_0915.ps1
 ```
 
-The script uses official CARLA tiny URLs:
-
-```text
-https://tiny.carla.org/carla-0-9-15-windows
-https://tiny.carla.org/additional-maps-0-9-15-windows
-```
-
-CARLA binaries are installed outside the repository under `D:\CARLA` and are not committed.
-
-## Check CARLA Environment
+Check the local environment:
 
 ```powershell
 python scripts/check_carla_environment.py
 ```
 
-The checker reports:
-
-- install path,
-- executable path,
-- free disk space,
-- port 2000/2001 status,
-- GPU adapters,
-- Python API import status.
-
-If CARLA is not installed, the checker exits with a non-zero code and prints a JSON report instead of crashing.
-
-## Start The Platform
+## Start Platform
 
 Backend:
 
@@ -130,10 +129,31 @@ npm run dev
 Open:
 
 - frontend: `http://127.0.0.1:5174`
-- admin: `http://127.0.0.1:5174/admin`
-- backend health: `http://127.0.0.1:8010/api/health`
+- admin console: `http://127.0.0.1:5174/admin`
 - database status: `http://127.0.0.1:8010/api/db/status`
 - CARLA status: `http://127.0.0.1:8010/api/carla/status`
+
+## Admin Workflow
+
+1. Open `/admin`.
+2. Click "Initialize" to ensure the MySQL schema and seed data are current.
+3. Edit or add models in the model catalog.
+4. Edit or add CARLA scenarios:
+   - `dataset_source`: `carla`
+   - `carla_town`: `Town01`, `Town03`, `Town05`, `Town10HD`, etc.
+   - `default_config_json`:
+
+```json
+{
+  "duration_seconds": 15,
+  "weather": "ClearNoon",
+  "traffic_vehicles": 20,
+  "traffic_walkers": 5,
+  "ego_vehicle": "vehicle.tesla.model3",
+  "spawn_point_index": 0,
+  "synchronous_mode": true
+}
+```
 
 ## CARLA API
 
@@ -145,16 +165,7 @@ GET  /api/carla/maps
 POST /api/carla/run
 ```
 
-Start CARLA visible window:
-
-```powershell
-Invoke-RestMethod -Method Post `
-  -Uri http://127.0.0.1:8010/api/carla/start `
-  -ContentType "application/json" `
-  -Body '{"windowed":true,"res_x":1280,"res_y":720}'
-```
-
-Run a 10-second Town03 demo:
+Run a CARLA scenario directly:
 
 ```powershell
 Invoke-RestMethod -Method Post `
@@ -163,21 +174,14 @@ Invoke-RestMethod -Method Post `
   -Body '{"town":"Town03","duration_seconds":10,"traffic_vehicles":10,"traffic_walkers":0}'
 ```
 
-Example run result fields:
+Outputs:
 
 ```text
-run_uid
-town
-metrics.distance_m
-metrics.collision_count
-metrics.average_speed_kmh
-trajectory_path
-camera_image_url
-timesteps
-stats
+outputs/carla/<run_uid>/trajectory.json
+backend/static/carla/<run_uid>/camera.jpg
 ```
 
-## Existing Product API
+## Product API
 
 ```text
 GET   /api/db/status
@@ -204,34 +208,28 @@ npm --prefix frontend run build
 python scripts/check_carla_environment.py
 ```
 
-Smoke test CARLA status without installation:
+Database smoke check:
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:8010/api/carla/status
+```sql
+SELECT scenario_key, dataset_source, carla_town, status
+FROM simulation_scenarios
+ORDER BY id;
 ```
 
-Expected behavior when CARLA is not installed:
+Batch 4 verification on the development machine:
 
-- `installed=false`,
-- `connected=false`,
-- readable `error` message,
-- no backend crash.
-
-Batch 3 verification on the development machine:
-
+- Database upgrade/seed: passed
 - Unit/API tests: passed
 - Frontend build: passed
-- CARLA status API handles missing local CARLA cleanly
+- Admin page supports CARLA scenario fields
 
 ## Next Batch
 
-Batch 4 will update the database and admin console from Unity-era scenario fields to CARLA multi-scenario management:
+Batch 5 will make the client sandbox CARLA-first:
 
-- `dataset_source=carla`,
-- CARLA Town selection,
-- weather,
-- traffic vehicles,
-- traffic walkers,
-- duration,
-- spawn point,
-- synchronous mode.
+- CARLA status panel,
+- start button,
+- scenario selection,
+- CARLA run button,
+- camera image and metrics display,
+- experiment history with CARLA results.

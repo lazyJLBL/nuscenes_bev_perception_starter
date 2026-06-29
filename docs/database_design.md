@@ -2,7 +2,7 @@
 
 数据库名：`nuscenes_bev_platform`
 
-设计目标：支撑一个客户端和一个管理员端。管理员维护模型与仿真试验模板；客户运行或查看自己的仿真试验和最终结果。Unity 仿真链路暂不接入，但场景字段已预留。
+设计目标：支撑一个客户端和一个管理员端。管理员维护模型与 CARLA 仿真试验模板；客户运行或查看自己的仿真试验和最终结果。
 
 ## 关系总览
 
@@ -46,7 +46,7 @@ model_catalog 1 ── n simulation_runs.planning_model_id
 | `name` | 展示名称 |
 | `subsystem` | `preprocessing`、`perception`、`decision`、`planning` |
 | `category` | 细分类型，例如 `3d_detection` |
-| `framework` | `pytorch`、`python`、`unity-adapter` 等 |
+| `framework` | `pytorch`、`python`、`carla-adapter` 等 |
 | `version` | 模型版本 |
 | `status` | `active`、`draft`、`disabled`、`needs_checkpoint`、`unavailable` |
 | `description` | 管理员说明 |
@@ -61,7 +61,7 @@ model_catalog 1 ── n simulation_runs.planning_model_id
 
 ## simulation_scenarios
 
-仿真试验模板。管理员在这里维护 nuScenes 或 Unity 场景。
+仿真试验模板。管理员在这里维护 nuScenes 或 CARLA 场景。
 
 | 字段 | 说明 |
 |---|---|
@@ -69,10 +69,10 @@ model_catalog 1 ── n simulation_runs.planning_model_id
 | `scenario_key` | 唯一试验标识 |
 | `name` | 试验名称 |
 | `description` | 试验说明 |
-| `dataset_source` | `nuscenes`、`unity`、`mixed` |
-| `unity_scene_name` | Unity 场景名，当前预留 |
+| `dataset_source` | `nuscenes`、`carla`、`mixed` |
+| `carla_town` | CARLA Town 名称，例如 `Town03` |
 | `status` | `active`、`draft`、`disabled` |
-| `default_config_json` | 默认天气、样本数量、交通密度等配置 |
+| `default_config_json` | 默认天气、仿真时长、车流、行人、出生点等配置 |
 | `created_by_id` | 创建人 |
 | `created_at` / `updated_at` | 创建和更新时间 |
 

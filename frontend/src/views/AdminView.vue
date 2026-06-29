@@ -30,11 +30,11 @@ const modelForm = reactive({
 const scenarioForm = reactive({
   scenario_key: '',
   name: '',
-  dataset_source: 'nuscenes',
-  unity_scene_name: '',
+  dataset_source: 'carla',
+  carla_town: 'Town03',
   status: 'active',
   description: '',
-  default_config_json: '{\n  "max_samples": 8\n}'
+  default_config_json: '{\n  "duration_seconds": 15,\n  "weather": "ClearNoon",\n  "traffic_vehicles": 20,\n  "traffic_walkers": 5,\n  "spawn_point_index": 0,\n  "synchronous_mode": true\n}'
 })
 
 const selectedModel = computed(() => models.value.find(item => item.id === selectedModelId.value) || null)
@@ -156,11 +156,11 @@ const resetScenarioForm = () => {
   Object.assign(scenarioForm, {
     scenario_key: '',
     name: '',
-    dataset_source: 'nuscenes',
-    unity_scene_name: '',
+    dataset_source: 'carla',
+    carla_town: 'Town03',
     status: 'active',
     description: '',
-    default_config_json: '{\n  "max_samples": 8\n}'
+    default_config_json: '{\n  "duration_seconds": 15,\n  "weather": "ClearNoon",\n  "traffic_vehicles": 20,\n  "traffic_walkers": 5,\n  "spawn_point_index": 0,\n  "synchronous_mode": true\n}'
   })
 }
 
@@ -169,8 +169,8 @@ const selectScenario = (scenario) => {
   Object.assign(scenarioForm, {
     scenario_key: scenario.scenario_key || '',
     name: scenario.name || '',
-    dataset_source: scenario.dataset_source || 'nuscenes',
-    unity_scene_name: scenario.unity_scene_name || '',
+    dataset_source: scenario.dataset_source || 'carla',
+    carla_town: scenario.carla_town || 'Town03',
     status: scenario.status || 'active',
     description: scenario.description || '',
     default_config_json: JSON.stringify(scenario.default_config_json || {}, null, 2)
@@ -325,7 +325,7 @@ onMounted(fetchAll)
               <label>数据来源
                 <select v-model="scenarioForm.dataset_source" class="form-control">
                   <option value="nuscenes">nuscenes</option>
-                  <option value="unity">unity</option>
+                  <option value="carla">carla</option>
                   <option value="mixed">mixed</option>
                 </select>
               </label>
@@ -337,7 +337,7 @@ onMounted(fetchAll)
                 </select>
               </label>
             </div>
-            <label>Unity 场景名<input v-model="scenarioForm.unity_scene_name" class="form-control" /></label>
+            <label>CARLA Town<input v-model="scenarioForm.carla_town" class="form-control" placeholder="Town03" /></label>
             <label>描述<textarea v-model="scenarioForm.description" class="form-control" rows="3"></textarea></label>
             <label>默认配置 JSON<textarea v-model="scenarioForm.default_config_json" class="form-control mono" rows="7"></textarea></label>
             <button class="submit-btn" type="submit">
